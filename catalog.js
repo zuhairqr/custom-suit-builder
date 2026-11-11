@@ -81,6 +81,19 @@ const collectionFabrics = [
   code, name, material, family, color, thread, weave, surcharge, scale,
 }));
 
+// Keep these at the end so saved fabric selections keep their original IDs.
+const scannedFabrics = [
+  ['poly_wool_herringbone', 'Grey Wool Blend Herringbone', 'Wool–polyester blend', 'wool', '#777577', 'herringbone', 'grey', 'cool', 35],
+  ['rough_linen', 'Blue Rough Linen', 'Linen', 'summer', '#91abcd', 'linen', 'blue', 'warm', 35],
+  ['terlenka', 'Beige Terlenka', 'Polyester', 'occasion', '#c5af99', 'plain', 'beige', 'all-season', 15],
+  ['gingham_check', 'Green Cotton Gingham', 'Cotton', 'summer', '#75886a', 'plaid', 'green', 'warm', 25],
+  ['crepe_satin', 'Gold Crepe Satin', 'Satin', 'occasion', '#daac76', 'plain', 'gold', 'all-season', 40],
+  ['stretch_poplin', 'Green Stretch Poplin', 'Cotton', 'summer', '#b7d463', 'plain', 'green', 'warm', 25],
+].map(([scan, name, material, family, color, weave, colorGroup, season, surcharge], index) => ({
+  scan, name, material, family, color, thread: color, weave, colorGroup, season, surcharge,
+  code: `FA-P${String(index + 1).padStart(2, '0')}`,
+}));
+
 const fabrics = featuredFabrics.concat(clothRecipes.flatMap(([pattern, fibre, family, weave, surcharge, scale = 1], recipeIndex) =>
   clothColors.map(([shade, color, thread], colorIndex) => ({
     name: `${shade} ${pattern}`,
@@ -88,7 +101,7 @@ const fabrics = featuredFabrics.concat(clothRecipes.flatMap(([pattern, fibre, fa
     code: `FA-${String(recipeIndex + 1).padStart(2, '0')}-${String(colorIndex + 1).padStart(2, '0')}`,
     family, color, thread, weave, scale, surcharge,
   }))
-), collectionFabrics);
+), collectionFabrics, scannedFabrics);
 
 const collectionLooks = [
   {

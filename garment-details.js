@@ -382,8 +382,8 @@ function paintFrontDetails(ctx, design, split, open = false) {
     if (open) {
       // Keep the bottom row by the opening, clear of the side-pocket mouths.
       const left = !double || x < 512;
-      const offset = double && y < 970 ? Math.max(123, Math.abs(x - 512)) : 101;
-      if (!double) ink(ctx, `M610 ${y}h23`, '#10141bc9', 4.5);
+      const offset = double && y < 970 ? Math.max(123, Math.abs(x - 512)) : open === 'wide' ? 118 : 101;
+      if (!double) ink(ctx, `M${512 + offset - 3} ${y}h23`, '#10141bc9', 4.5);
       paintButton(ctx, 512 + (left ? -offset : offset), y, 14, button, left ? leftFabric : fabric);
       continue;
     }

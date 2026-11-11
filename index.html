@@ -6,9 +6,9 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
   <title>Form Atelier | Suit Studio</title>
-  <link rel="stylesheet" href="studio.css?v=live-preview-stage">
+  <link rel="stylesheet" href="studio.css?v=cloth-studio">
   <script src="neckline-catalog.js" defer></script>
-  <script src="catalog.js?v=neckline-catalog" defer></script>
+  <script src="catalog.js?v=cloth-studio" defer></script>
   <script src="fit-icons.js" defer></script>
   <script src="mannequin-front.js" defer></script>
   <script src="mannequin-inside.js" defer></script>
@@ -17,22 +17,23 @@
   <script src="mannequin-trousers-back.js" defer></script>
   <script src="mannequin-waistcoat.js" defer></script>
   <script src="mannequin-waistcoat-back.js" defer></script>
-  <script src="garment-details.js?v=neck-shadow-fix" defer></script>
+  <script src="garment-details.js?v=cloth-studio" defer></script>
   <script src="suit-pieces.js?v=waistcoat-opening" defer></script>
   <script src="construction-details.js?v=photo-cloth" defer></script>
   <script src="cloth-samples.js" defer></script>
-  <script src="fabric-renderer.js?v=cloth-detail-balance" defer></script>
+  <script src="fabric-scans.js" defer></script>
+  <script src="fabric-renderer.js?v=cloth-studio" defer></script>
   <script src="face-camera.js" defer></script>
-  <script src="full-suit.js?v=waistcoat-opening" defer></script>
+  <script src="full-suit.js?v=cloth-studio" defer></script>
   <script src="size-passport.js" defer></script>
   <script src="body-pose.js?v=front-pose" defer></script>
   <script src="body-capture.js?v=consistent-frames" defer></script>
-  <script src="body-try-on.js?v=source-cloth-fit" defer></script>
+  <script src="body-try-on.js?v=cloth-studio" defer></script>
   <script src="studio-render.js?v=instant-fit-export" defer></script>
   <!-- 3D rendering disabled -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
   <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
-  <script src="studio.js?v=full-angle-preview" defer></script>
+  <script src="studio.js?v=cloth-studio" defer></script>
 </head>
 <body>
   <header class="top">
@@ -63,17 +64,40 @@
         <div class="workbench">
           <aside class="glass cloth" aria-labelledby="cloth-title">
             <p class="eyebrow">01 / MATERIAL</p>
-            <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count"></span></div>
+            <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count" aria-live="polite"></span></div>
             <label class="sr-only" for="fabric-search">Search fabrics</label>
             <input id="fabric-search" type="search" placeholder="Color, weave, or code" autocomplete="off">
-            <label class="sr-only" for="fabric-filter">Filter fabrics</label>
-            <select id="fabric-filter">
-              <option value="all">All fabrics</option>
-              <option value="collection">Collection swatches</option>
-              <option value="wool">Wool</option>
-              <option value="summer">Linen &amp; summer blends</option>
-              <option value="occasion">Evening &amp; textured</option>
-            </select>
+            <details class="fabric-filters">
+              <summary>Filters <span id="fabric-filter-count"></span></summary>
+              <div id="fabric-facets" class="fabric-facets">
+                <label>Swatch source<select id="fabric-filter">
+                  <option value="all">All sources</option><option value="scan">Photographed</option>
+                  <option value="digital">Digital</option><option value="collection">Collection references</option>
+                </select></label>
+                <label>Material<select id="fabric-material">
+                  <option value="all">Any material</option><option value="wool">Wool</option><option value="linen">Linen</option>
+                  <option value="cotton">Cotton</option><option value="silk">Silk</option><option value="polyester">Polyester</option>
+                </select></label>
+                <label>Color<select id="fabric-color">
+                  <option value="all">Any color</option><option value="blue">Blue</option><option value="grey">Grey</option>
+                  <option value="black">Black</option><option value="green">Green</option><option value="brown">Brown</option>
+                  <option value="beige">Beige</option><option value="red">Red &amp; pink</option><option value="purple">Purple</option><option value="gold">Gold</option>
+                </select></label>
+                <label>Pattern<select id="fabric-pattern">
+                  <option value="all">Any pattern</option><option value="solid">Solid</option><option value="check">Checks</option>
+                  <option value="stripe">Stripes</option><option value="herringbone">Herringbone</option><option value="texture">Other weaves</option>
+                </select></label>
+                <label>Season<select id="fabric-season">
+                  <option value="all">Any season</option><option value="warm">Warm weather</option>
+                  <option value="cool">Cool weather</option><option value="all-season">Year-round</option>
+                </select></label>
+                <label>Cloth upgrade<select id="fabric-upgrade">
+                  <option value="all">Any price</option><option value="included">Included</option>
+                  <option value="mid">Up to +$25</option><option value="premium">+$26 and up</option>
+                </select></label>
+              </div>
+              <button id="clear-fabric-filters" class="quiet" type="button">Clear filters</button>
+            </details>
             <div id="swatches" class="swatches"></div>
             <div class="fabric-pages" aria-label="Fabric pages">
               <button id="previous-fabrics" type="button" aria-label="Previous fabric page">‹</button>
@@ -98,8 +122,8 @@
             <div class="model-stage">
               <div id="model" class="model"><canvas id="fabric-model" role="img"></canvas></div>
               <figure id="look-detail" class="look-detail" hidden>
-                <div class="detail-top"><span id="look-detail-mode">CONSTRUCTION CLOSE-UP</span><button id="close-look-detail" type="button" aria-label="Close construction close-up">×</button></div>
-                <canvas id="look-detail-image" width="560" height="490" aria-hidden="true"></canvas>
+                <div class="detail-top"><span id="look-detail-mode">Construction close-up</span><button id="close-look-detail" type="button">Full view</button></div>
+                <canvas id="look-detail-image" width="960" height="840" role="img" aria-labelledby="look-detail-label look-detail-choice"></canvas>
                 <figcaption><strong id="look-detail-label"></strong><span id="look-detail-choice"></span></figcaption>
               </figure>
               <p id="photo-notice" class="photo-notice" role="status">Loading preview…</p>
@@ -110,6 +134,11 @@
                 <button type="button" data-view="inside" aria-pressed="false">Inside</button>
                 <button type="button" data-view="back" aria-pressed="false">Back</button>
               </div>
+              <button id="toggle-jacket" type="button" hidden>Hide jacket</button>
+              <label id="skin-tone-control">Skin tone<select id="skin-tone">
+                <option value="0">Mannequin</option><option value="1">Light</option><option value="2">Medium</option>
+                <option value="3">Tan</option><option value="4">Deep</option><option value="5">Rich deep</option>
+              </select></label>
               <button id="zoom" class="zoom" type="button" aria-label="Zoom preview" aria-pressed="false">+</button>
             </div>
           </section>
@@ -269,12 +298,14 @@
       <button id="remove-face" type="button" class="quiet" hidden>Remove face</button>
     </div>
   </dialog>
-  <dialog id="fabric-dialog" class="fabric-dialog">
+  <dialog id="fabric-dialog" class="fabric-dialog" aria-labelledby="fabric-dialog-title">
     <form method="dialog"><button aria-label="Close fabric detail" class="quiet">✕</button></form>
     <p class="eyebrow">MATERIAL / CLOSE-UP</p>
     <h2 id="fabric-dialog-title"></h2>
     <p id="fabric-dialog-material"></p>
     <p id="fabric-dialog-source" class="eyebrow"></p>
+    <dl id="fabric-dialog-specs" class="fabric-specs"></dl>
+    <a id="fabric-dialog-credit" target="_blank" rel="noopener" hidden>View source photograph ↗</a>
     <canvas id="fabric-macro" width="640" height="440" aria-hidden="true"></canvas>
   </dialog>
   <dialog id="source-dialog" aria-labelledby="source-title">

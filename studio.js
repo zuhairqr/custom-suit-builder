@@ -45,6 +45,8 @@ for (const [key, [, options]] of Object.entries(fitGroups)) {
 }
 let angle = 'front';
 let piece = 'jacket';
+let jacketHidden = false;
+let skinTone = Number.isInteger(saved.skinTone) && mannequinTones[saved.skinTone] ? saved.skinTone : 0;
 let split = true;
 let zoomed = false;
 let zoomFocus = 53;
@@ -63,32 +65,59 @@ const collectionCodes = new Set(collectionLooks.map(({fabric}) => fabric));
 
 function save() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit}));
+    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone}));
   } catch {
     // The current tab can still hold the configuration when storage is disabled.
   }
 }
 
+const fabricFacets = [...get('fabric-facets').querySelectorAll('select')];
+const fabricOrder = fabrics.map((fabric, index) => ({fabric, index, traits: fabricTraits(fabric)}));
+fabricOrder.sort((a, b) => Number(Boolean(b.fabric.scan)) - Number(Boolean(a.fabric.scan)));
+
+function fabricTraits(fabric) {
+  const {name, material, family, weave} = fabric;
+  const colorGroups = {
+    blue: /navy|blue|cornflower|midnight|teal|petrol/i, grey: /grey|gray|graphite|charcoal|pewter|silver/i,
+    black: /ink|onyx|black/i, green: /pine|forest|sage|olive|moss|eucalyptus/i,
+    brown: /cocoa|espresso|tobacco|chestnut|copper|camel/i, beige: /sand|taupe|oyster|stone|oat|ivory|beige/i,
+    red: /burgundy|oxblood|rose|red/i, purple: /plum|aubergine|heather|purple/i,
+  };
+  const color = fabric.colorGroup || Object.keys(colorGroups).find((key) => colorGroups[key].test(name)) || 'grey';
+  const pattern = /stripe/.test(weave) ? 'stripe' : /plaid|window|prince|gunclub|houndstooth/.test(weave) ? 'check'
+    : weave === 'herringbone' ? weave : /plain|twill|linen/.test(weave) ? 'solid' : 'texture';
+  const season = fabric.season || (family === 'summer' ? 'warm' : /flannel|tweed|velvet|corduroy/i.test(material) ? 'cool' : 'all-season');
+  return {color, pattern, season};
+}
+
 function mountSwatches() {
-  const filter = get('fabric-filter').value;
+  const [source, material, color, pattern, season, upgrade] = fabricFacets.map(({value}) => value);
+  const activeCount = fabricFacets.filter(({value}) => value !== 'all').length;
+  get('fabric-filter-count').textContent = activeCount ? `(${activeCount})` : '';
   const terms = get('fabric-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const matching = fabrics.map((fabric, index) => ({fabric, index})).filter(({fabric}) => {
-    const label = `${fabric.name} ${fabric.material} ${fabric.code}`.toLowerCase();
-    const inFilter = filter === 'all' || (filter === 'collection' ? collectionCodes.has(fabric.code) : fabric.family === filter);
-    return inFilter && terms.every((term) => label.includes(term));
+  const matching = fabricOrder.filter(({fabric, traits}) => {
+    const photographed = Boolean(fabric.scan || photoClothSources[fabric.code]);
+    const inSource = source === 'all' || (source === 'scan' && photographed) || (source === 'digital' && !photographed) ||
+      (source === 'collection' && collectionCodes.has(fabric.code));
+    const priceBand = fabric.surcharge === 0 ? 'included' : fabric.surcharge <= 25 ? 'mid' : 'premium';
+    const label = `${fabric.name} ${fabric.material} ${fabric.code} ${traits.color} ${traits.pattern} ${traits.season}`.toLowerCase();
+    return inSource && (material === 'all' || fabric.material.toLowerCase().includes(material)) &&
+      (color === 'all' || color === traits.color) && (pattern === 'all' || pattern === traits.pattern) &&
+      (season === 'all' || season === traits.season) && (upgrade === 'all' || upgrade === priceBand) &&
+      terms.every((term) => label.includes(term));
   });
   const pages = Math.ceil(matching.length / fabricsPerPage);
   fabricPage = Math.max(0, Math.min(fabricPage, pages - 1));
   const page = matching.slice(fabricPage * fabricsPerPage, (fabricPage + 1) * fabricsPerPage);
-  get('fabric-count').textContent = `${matching.length.toLocaleString('en-US')} fabric${matching.length === 1 ? '' : 's'}`;
+  get('fabric-count').textContent = `${matching.length.toLocaleString('en-US')} / ${fabrics.length.toLocaleString('en-US')}`;
   get('fabric-page').textContent = pages ? `${fabricPage + 1} / ${pages}` : 'No matches';
   get('previous-fabrics').disabled = fabricPage === 0;
   get('next-fabrics').disabled = fabricPage + 1 >= pages;
   get('swatches').innerHTML = page.map(({fabric, index}) => `
     <button class="swatch" type="button" data-fabric="${index}" aria-label="${fabric.name}" title="${fabric.name} · ${fabric.code}" aria-pressed="${index === design.fabric}">
       <canvas width="220" height="128" aria-hidden="true"></canvas>
-      <span>${fabric.name}</span>
-    </button>`).join('');
+      <span>${fabric.name}</span><small>${fabric.surcharge ? `+${money(fabric.surcharge)}` : 'Included'}</small>
+    </button>`).join('') || '<p class="fabric-empty">No fabrics match these filters.</p>';
   get('swatches').scrollTop = 0;
   for (const swatch of get('swatches').querySelectorAll('[data-fabric]')) {
     paintCloth(swatch.firstElementChild, Number(swatch.dataset.fabric), 1.1);
@@ -96,9 +125,9 @@ function mountSwatches() {
 }
 
 function resetFabricSearch() {
-  get('fabric-filter').value = 'all';
+  for (const facet of fabricFacets) facet.value = 'all';
   get('fabric-search').value = '';
-  fabricPage = Math.floor(design.fabric / fabricsPerPage);
+  fabricPage = Math.floor(fabricOrder.findIndex(({index}) => index === design.fabric) / fabricsPerPage);
   mountSwatches();
 }
 
@@ -161,7 +190,7 @@ function showsBodyPhoto() {
 function previewAssets() {
   if (showsBodyPhoto()) return design.outfit ? fullLookAssets('front', design.outfit === 2) : ['front'];
   const view = activePhoto();
-  return showsFullLook() ? fullLookAssets(view, design.outfit === 2) : [view];
+  return showsFullLook() ? fullLookAssets(view, design.outfit === 2, design.outfit === 2 && jacketHidden) : [view];
 }
 
 function ensurePhoto(view) {
@@ -182,8 +211,10 @@ function renderPreview() {
   const personal = showsBodyPhoto();
   const view = personal ? 'front' : activePhoto();
   const full = personal || showsFullLook();
-  const photographic = personal ? paintBodyTryOn(model, design) : full ? paintFullSuit(model, design, view, {face: true})
-    : paintGarmentPhoto(model, design, view, split, {face: true});
+  const hideJacket = design.outfit === 2 && jacketHidden;
+  const photographic = personal ? paintBodyTryOn(model, design, {jacketHidden: hideJacket})
+    : full ? paintFullSuit(model, design, view, {face: true, jacketHidden: hideJacket, skinTone})
+      : paintGarmentPhoto(model, design, view, split, {face: true, skinTone});
   model.hidden = !photographic;
   const notice = get('photo-notice');
   notice.hidden = photographic;
@@ -204,7 +235,7 @@ function renderPreview() {
   get('model').style.setProperty('--zoom-focus', `${zoomFocus}%`);
   const detailSpec = constructionDetails[lookDetail];
   const detailSource = detailSpec?.[0];
-  const sameView = full && !personal && detailSource === view && !detailSpec?.[5];
+  const sameView = full && !personal && !detailSpec?.[5] && (detailSource === view || (hideJacket && detailSource === 'waistcoat' && view === 'front'));
   const detailCanvas = get('look-detail-image');
   const detailVisible = Boolean(photographic && detailSource && (
     (personal && !detailSpec[5] && paintBodyFocus(detailCanvas, model, lookDetail, detailSource)) ||
@@ -217,7 +248,11 @@ function renderPreview() {
     get('look-detail-mode').textContent = cutawayNames[lookDetail] || 'Construction close-up';
     get('look-detail-label').textContent = label;
     get('look-detail-choice').textContent = options[design[lookDetail]];
+    get('close-look-detail').textContent = full ? 'Full Body' : 'Full view';
   }
+  get('toggle-jacket').hidden = design.outfit !== 2;
+  get('toggle-jacket').textContent = hideJacket ? 'Show jacket' : 'Hide jacket';
+  get('skin-tone-control').hidden = personal;
   get('open-body').textContent = tryOnSession.capture ? 'Manage try-on photo' : 'Full-body try-on';
   get('open-fit-export').hidden = !(personal && photographic);
   get('open-studio-render').hidden = !(studioGeneration.available && personal && photographic);
@@ -237,6 +272,7 @@ function focusConstruction(key) {
   lookDetail = key;
   zoomed = false;
   const view = constructionDetails[key]?.[0];
+  if (stylePiece(key) === 'jacket') jacketHidden = false;
   if (detailViews[key]) angle = detailViews[key];
   else if (['front', 'trousers', 'waistcoat'].includes(view)) angle = 'front';
 }
@@ -342,13 +378,19 @@ function filterFabrics() {
   mountSwatches();
 }
 
-get('fabric-filter').addEventListener('change', filterFabrics);
+get('fabric-facets').addEventListener('change', filterFabrics);
+get('clear-fabric-filters').addEventListener('click', () => {
+  for (const facet of fabricFacets) facet.value = 'all';
+  get('fabric-search').value = '';
+  filterFabrics();
+});
 get('fabric-search').addEventListener('input', filterFabrics);
 get('previous-fabrics').addEventListener('click', () => { fabricPage -= 1; mountSwatches(); });
 get('next-fabrics').addEventListener('click', () => { fabricPage += 1; mountSwatches(); });
 
 get('outfit').addEventListener('change', (event) => {
   design.outfit = Number(event.target.value);
+  jacketHidden = false;
   lookDetail = '';
   angle = 'front';
   zoomed = false;
@@ -374,6 +416,7 @@ get('swatches').addEventListener('click', (event) => {
   const option = event.target.closest('[data-fabric]');
   if (!option) return;
   design.fabric = Number(option.dataset.fabric);
+  split = false;
   renderDesign();
   save();
 });
@@ -433,10 +476,26 @@ get('style-jump').addEventListener('change', (event) => {
 document.querySelector('.angles').addEventListener('click', (event) => {
   if (!event.target.matches('[data-view]')) return;
   angle = event.target.dataset.view;
+  if (angle === 'inside') jacketHidden = false;
   lookDetail = '';
   zoomed = false;
   zoomFocus = 53;
   renderPreview();
+});
+
+get('toggle-jacket').addEventListener('click', () => {
+  jacketHidden = !jacketHidden;
+  if (angle === 'inside') angle = 'front';
+  lookDetail = '';
+  zoomed = false;
+  renderPreview();
+});
+
+get('skin-tone').value = skinTone;
+get('skin-tone').addEventListener('change', (event) => {
+  skinTone = Number(event.target.value);
+  renderPreview();
+  save();
 });
 
 get('compare').addEventListener('click', () => {
@@ -459,6 +518,7 @@ get('close-look-detail').addEventListener('click', () => {
 
 get('reset').addEventListener('click', () => {
   design = {...defaults};
+  jacketHidden = false;
   lookDetail = '';
   piece = 'jacket';
   angle = 'front';
@@ -603,6 +663,7 @@ collectionGrid.addEventListener('click', (event) => {
   lookDetail = '';
   zoomed = false;
   zoomFocus = 53;
+  for (const facet of fabricFacets) facet.value = 'all';
   get('fabric-search').value = '';
   get('fabric-filter').value = 'collection';
   filterFabrics();
@@ -614,10 +675,18 @@ collectionGrid.addEventListener('click', (event) => {
 });
 function paintFabricInspector() {
   const fabric = fabrics[design.fabric];
+  const traits = fabricTraits(fabric);
   get('fabric-dialog-title').textContent = fabric.name;
   get('fabric-dialog-material').textContent = fabric.material;
-  get('fabric-dialog-source').textContent = photoCloth(design.fabric) ? 'PHOTO TEXTURE USED IN PREVIEW' : 'DIGITAL SWATCH';
-  paintCloth(get('fabric-macro'), design.fabric, 3);
+  get('fabric-dialog-source').textContent = photoCloth(design.fabric) ? 'Photographed cloth' : fabric.scan ? 'Loading cloth photograph' : 'Digital swatch';
+  const season = {warm: 'Warm weather', cool: 'Cool weather', 'all-season': 'Year-round'}[traits.season];
+  const details = [['Studio code', fabric.code], ['Color', traits.color], ['Pattern', traits.pattern],
+    ['Season suggestion', season], ['Cloth upgrade', fabric.surcharge ? `+${money(fabric.surcharge)}` : 'Included']];
+  get('fabric-dialog-specs').innerHTML = details.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('');
+  const credit = get('fabric-dialog-credit');
+  credit.hidden = !fabric.scan;
+  if (fabric.scan) credit.href = `https://polyhaven.com/a/${fabric.scan}`;
+  paintClothMacro(get('fabric-macro'), design.fabric);
 }
 
 get('inspect-fabric').addEventListener('click', () => {

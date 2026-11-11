@@ -17,7 +17,8 @@ function rgb(hex) {
 }
 
 function requestClothSample(index) {
-  const source = photoClothSources[fabrics[index].code];
+  const {scan, code} = fabrics[index];
+  const source = scan ? scannedClothSources[scan] : photoClothSources[code];
   if (!source || clothSamples.has(index)) return;
   clothSamples.set(index, null);
   const photo = new Image();
@@ -26,11 +27,25 @@ function requestClothSample(index) {
     const ctx = tile.getContext('2d');
     ctx.drawImage(photo, 0, 0, tileSize, tileSize);
     const pixels = ctx.getImageData(0, 0, tileSize, tileSize).data;
-    clothSamples.set(index, {tile, pixels, average: clothAverage(pixels)});
+    clothSamples.set(index, {tile, pixels, average: clothAverage(pixels), image: photo});
     clothTiles.delete(index);
     document.dispatchEvent(new CustomEvent('cloth-sample-ready', {detail: index}));
   };
   photo.src = source;
+}
+
+function paintClothMacro(canvas, index) {
+  const sample = clothSamples.get(index);
+  if (!fabrics[index].scan || !sample) {
+    paintCloth(canvas, index, 3);
+    return;
+  }
+  const {image} = sample;
+  const {width, height} = canvas;
+  const cropHeight = image.naturalWidth * height / width;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, (image.naturalHeight - cropHeight) / 2,
+    image.naturalWidth, cropHeight, 0, 0, width, height);
 }
 
 function photoCloth(index) {
@@ -248,11 +263,20 @@ function loadGarmentPhoto(angle, source) {
   });
 }
 
-function paintMaterials(photo, design, angle, split) {
+const mannequinTones = [null, '#efc6a8', '#c89373', '#a57455', '#774d39', '#53352c'];
+
+function mannequinSkinPixel(x, y, angle) {
+  if (angle.startsWith('trousers')) return y > 1370;
+  const head = x > 362 && x < 666 && (y < 322 || (y < 420 && x > 421 && x < 603));
+  const hands = y > 1190 && (x < 209 || x > 815);
+  return head || hands;
+}
+
+function paintMaterials(photo, design, angle, split, skinTone = 0) {
   const fabricIndex = angle.startsWith('waistcoat') ? vestContrast[design.vestCloth] ?? design.fabric : design.fabric;
   const satinColor = angle === 'waistcoatBack' ? [null, fabrics[fabricIndex].color, waistcoatLining(design)][design.vestBack] : null;
   const sample = photoCloth(fabricIndex);
-  const key = `${fabricIndex}/${sample}/${split}/${angle === 'inside' ? [design.lining, design.liningCoverage] : satinColor}`;
+  const key = `${fabricIndex}/${sample}/${split}/${skinTone}/${angle === 'inside' ? [design.lining, design.liningCoverage] : satinColor}`;
   if (photo.materialKey === key) return;
   const {width, height, base, mask, shade, tileOffsets, materialCanvas} = photo;
   const ctx = materialCanvas.getContext('2d');
@@ -261,22 +285,32 @@ function paintMaterials(photo, design, angle, split) {
   const selected = clothTile(fabricIndex);
   const comparison = split ? clothTile(1) : selected;
   const patterned = /^(window|plaid|prince|gunclub|houndstooth|stripe|pinstripe|seersucker)$/;
-  const selectedTexture = patterned.test(fabrics[fabricIndex].weave) ? .94 : .57;
+  const selectedTexture = patterned.test(fabrics[fabricIndex].weave) ? .94 : sample ? .78 : .57;
   const selectedMatte = /flannel|tweed|linen/i.test(fabrics[fabricIndex].material);
   const comparisonMatte = split ? false : selectedMatte;
   const lining = liningColors[design.lining] ? rgb(liningColors[design.lining]) : null;
   const satin = satinColor ? rgb(satinColor) : null;
   const liningLimit = [height, height * 918 / 1536, 0][design.liningCoverage] * width;
+  const tone = mannequinTones[skinTone] && rgb(mannequinTones[skinTone]);
 
   for (let px = 0; px < mask.length; px++) {
-    if (!mask[px]) continue;
+    const i = px * 4;
+    if (!mask[px]) {
+      if (tone && base[i + 3] > 5 && mannequinSkinPixel((px % width) * 1024 / width, Math.floor(px / width) * 1536 / height, angle)) {
+        const [r, g, b] = [base[i], base[i + 1], base[i + 2]];
+        if (Math.max(r, g, b) - Math.min(r, g, b) < 32) {
+          const light = clamp(Math.pow((r + 2 * g + b) / 860, .82), .24, 1.18);
+          for (let channel = 0; channel < 3; channel++) frame.data[i + channel] = tone[channel] * light;
+        }
+      }
+      continue;
+    }
     const opacity = Math.abs(mask[px]) / 127;
     const solid = satin || (mask[px] < 0 && px < liningLimit && lining);
     const left = px % width < width / 2;
     const cloth = left ? comparison : selected;
     const texture = left && split ? .57 : selectedTexture;
     const index = tileOffsets[px] * 4;
-    const i = px * 4;
     const light = shade[px];
     const matte = !solid && (left ? comparisonMatte : selectedMatte);
     const fromPhoto = sample && !solid && !(left && split);
@@ -314,7 +348,7 @@ function applySilhouette(ctx, source, fit, shoulder = 0) {
   }
 }
 
-function removePortraitTrousers(layer, photo) {
+function removePortraitTrousers(layer, photo, hem) {
   if (!photo.porcelainMask) {
     const {width, height, mask, base} = photo;
     const canvas = makeCanvas(width, height);
@@ -322,7 +356,7 @@ function removePortraitTrousers(layer, photo) {
     const frame = ctx.createImageData(width, height);
     const left = Math.floor(width * 214 / 1024);
     const right = width - left;
-    for (let y = Math.floor(height * 1318 / 1536); y < height; y++) {
+    for (let y = Math.floor(height * hem / 1536); y < height; y++) {
       for (let x = left; x < right; x++) {
         const pixel = y * width + x;
         const i = pixel * 4;
@@ -359,13 +393,13 @@ function isolatePhotoCloth(ctx, photo) {
   ctx.restore();
 }
 
-function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, open = false, face = false, fullBody = false, garmentOnly = false} = {}) {
+function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, open = false, face = false, fullBody = false, garmentOnly = false, skinTone = 0} = {}) {
   const photo = studioPhotos.get(angle);
   if (!photo) return false;
   split = split && angle === 'front';
   const garment = angle.startsWith('trousers') ? 'trousers' : angle.startsWith('waistcoat') ? 'waistcoat' : 'jacket';
   const faceVersion = face && ['front', 'inside', 'waistcoat'].includes(angle) ? faceState.version : 0;
-  const key = JSON.stringify([garmentSettings[garment].map((key) => design[key]), clothAppearance(design), angle, split, open, faceVersion, thumbnail, fullBody, garmentOnly]);
+  const key = JSON.stringify([garmentSettings[garment].map((key) => design[key]), clothAppearance(design), angle, split, open, faceVersion, thumbnail, fullBody, garmentOnly, skinTone]);
   if (renderedCanvases.get(canvas) === key) return true;
 
   const fabric = fabrics[garment === 'waistcoat' ? vestContrast[design.vestCloth] ?? design.fabric : design.fabric].name;
@@ -373,13 +407,13 @@ function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, ope
   const view = angle.endsWith('Back') ? 'back' : garment === 'jacket' ? angle : 'front';
   canvas.setAttribute('aria-label', `${material} ${garment}, ${view} view${faceVersion && faceState.image ? ', with your face' : ''}`);
   const {width, height, materialCanvas, composition} = photo;
-  paintMaterials(photo, design, angle, split);
+  paintMaterials(photo, design, angle, split, skinTone);
 
   const layer = composition.getContext('2d');
   layer.setTransform(1, 0, 0, 1, 0, 0);
   layer.clearRect(0, 0, width, height);
   layer.drawImage(materialCanvas, 0, 0);
-  if (fullBody && garment === 'jacket') removePortraitTrousers(layer, photo);
+  if (fullBody && garment !== 'trousers') removePortraitTrousers(layer, photo, garment === 'waistcoat' ? 1228 : 1318);
   layer.scale(width / 1024, height / 1536);
   if (garment === 'jacket') {
     if (angle === 'front') paintFrontDetails(layer, design, split, open);

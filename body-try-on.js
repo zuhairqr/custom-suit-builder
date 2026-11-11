@@ -255,7 +255,7 @@ function putTrousers(ctx, trousers, display, body, design) {
   }
 }
 
-function putJacket(ctx, jacket, display, body, design) {
+function putJacket(ctx, jacket, display, body, design, vestOnly = false) {
   const {elbows, wrists, shoulderCenter, hipCenter, torsoLength, knees, span} = body;
   const profile = [1, 1.035, .955][design.silhouette];
   const torso = [hipCenter[0] - shoulderCenter[0], hipCenter[1] - shoulderCenter[1]];
@@ -283,8 +283,10 @@ function putJacket(ctx, jacket, display, body, design) {
     centeredRow(pointBetween(shoulderCenter, armhole, .56), span * .68),
     shoulderRow,
   ]);
-  putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows);
-  putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows);
+  if (!vestOnly) {
+    putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows);
+    putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows);
+  }
 
   const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], design)]
     .map(([y, left]) => [[left, y], [1024 - left, y]]);
@@ -338,11 +340,11 @@ function composeTryOnJacket(design, withWaistcoat, spread = false) {
   return complete;
 }
 
-function coverSourceCloth(output, lighting, display, body, hasTrousers) {
+function coverSourceCloth(output, lighting, display, body, hasTrousers, vestOnly) {
   const {width, height, studioBackground} = display;
   const {span, ankles, hipCenter, knees, shoulderCenter, torsoLength} = body;
   const reach = Math.round(clamp(span * .11, 5, 30));
-  const top = Math.max(0, Math.ceil(display.safeTop));
+  const top = Math.max(0, Math.ceil(vestOnly ? hipCenter[1] : display.safeTop));
   const bottom = Math.min(height, Math.ceil(hasTrousers
     ? Math.max(...ankles.map((point) => point[1]))
     : pointBetween(hipCenter, pointBetween(...knees, .5), .23)[1] + span * .08));
@@ -406,12 +408,14 @@ function coverSourceCloth(output, lighting, display, body, hasTrousers) {
   output.putImageData(original, 0, top);
 }
 
-function paintBodyTryOn(canvas, design) {
+function paintBodyTryOn(canvas, design, {jacketHidden = false} = {}) {
   const capture = tryOnSession.capture;
   if (!capture) return false;
-  const key = JSON.stringify(['body-try-on', tryOnSession.revision, design, clothAppearance(design), studioPhotos.has('inside')]);
+  const key = JSON.stringify(['body-try-on', tryOnSession.revision, design, clothAppearance(design), jacketHidden, studioPhotos.has('inside')]);
   if (renderedCanvases.get(canvas) === key) return true;
-  const jacket = composeTryOnJacket(design, design.outfit === 2, true);
+  const vest = tryOnLayer('vest');
+  const jacket = jacketHidden ? (paintGarmentPhoto(vest, design, 'waistcoat', false, {garmentOnly: true}) ? vest : null)
+    : composeTryOnJacket(design, design.outfit === 2, true);
   const trousers = tryOnLayer('trousers');
   if (!jacket || (design.outfit > 0 && !paintGarmentPhoto(trousers, design, 'trousers', false, {garmentOnly: true}))) return false;
 
@@ -431,7 +435,7 @@ function paintBodyTryOn(canvas, design) {
   const cloth = fabric.getContext('2d');
   cloth.imageSmoothingQuality = 'high';
   if (design.outfit > 0) putTrousers(cloth, trousers, display, body, design);
-  putJacket(cloth, jacket, display, body, design);
+  putJacket(cloth, jacket, display, body, design, jacketHidden);
   cloth.clearRect(0, 0, width, Math.max(0, safeTop));
   const lighting = tryOnLayer('light');
   lighting.width = width;
@@ -447,9 +451,9 @@ function paintBodyTryOn(canvas, design) {
   canvas.height = height;
   const output = canvas.getContext('2d');
   output.drawImage(photoFrame, 0, 0);
-  coverSourceCloth(output, lighting, display, body, design.outfit > 0);
+  coverSourceCloth(output, lighting, display, body, design.outfit > 0, jacketHidden);
   output.drawImage(lighting, 0, 0);
-  canvas.setAttribute('aria-label', `${fabrics[design.fabric].name} ${outfits[design.outfit].name.toLowerCase()} on your full-body photo, front view`);
+  canvas.setAttribute('aria-label', `${fabrics[design.fabric].name} ${outfits[design.outfit].name.toLowerCase()} on your full-body photo, front view${jacketHidden ? ', jacket hidden' : ''}`);
   renderedCanvases.set(canvas, key);
   return true;
 }
