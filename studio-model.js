@@ -123,6 +123,7 @@ function paintStudioModelTrousers(output, display, design, capture) {
   }
   output.drawImage(base, 0, 0);
   drawTrouserFit(output, trouserOnly, design.trouserFit);
+  return trouserOnly;
 }
 
 function shapeClosedStudioJacket(jacket, closure) {
@@ -194,7 +195,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   canvas.width = width;
   canvas.height = height;
   const output = canvas.getContext('2d');
-  paintStudioModelTrousers(output, display, design, capture);
+  const trousers = paintStudioModelTrousers(output, display, design, capture);
   if (face?.crop) paintStudioFace(output, width, height, face, capture.rear);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the
@@ -207,6 +208,13 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     const sleeveMask = new Path2D(`M0 ${capture.rear ? 278 : 268}H887V909H0Z ${collarOpening}`);
     output.clip(sleeveMask, 'evenodd');
     output.clearRect(0, 268, 887, 641);
+    output.restore();
+  }
+  if (needsJacket && angle === 'inside' && trousers) {
+    // The open lining reveals the trousers below the waistcoat.
+    output.save();
+    output.globalCompositeOperation = 'destination-over';
+    drawTrouserFit(output, trousers, design.trouserFit);
     output.restore();
   }
   if (garment) {
