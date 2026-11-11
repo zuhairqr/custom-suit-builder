@@ -46,6 +46,8 @@ for (const [key, [, options]] of Object.entries(fitGroups)) {
 let angle = 'front';
 let piece = 'jacket';
 let jacketHidden = false;
+let waistcoatHidden = false;
+let modelPreference = saved.modelPreference === 'mannequin' ? 'mannequin' : 'studio';
 let skinTone = Number.isInteger(saved.skinTone) && mannequinTones[saved.skinTone] ? saved.skinTone : 0;
 let split = true;
 let zoomed = false;
@@ -65,7 +67,7 @@ const collectionCodes = new Set(collectionLooks.map(({fabric}) => fabric));
 
 function save() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone}));
+    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone, modelPreference}));
   } catch {
     // The current tab can still hold the configuration when storage is disabled.
   }
@@ -187,8 +189,24 @@ function showsBodyPhoto() {
   return Boolean(tryOnSession.capture && angle === 'front');
 }
 
+function showsStudioModel() {
+  return modelPreference === 'studio' && !studioModelUnavailable && angle === 'front' &&
+    !showsBodyPhoto() && !faceState.image;
+}
+
+function studioModelView() {
+  if (design.outfit !== 2 || !jacketHidden) return 'jacket';
+  return waistcoatHidden ? 'shirt' : 'waistcoat';
+}
+
 function previewAssets() {
   if (showsBodyPhoto()) return design.outfit ? fullLookAssets('front', design.outfit === 2) : ['front'];
+  if (showsStudioModel()) {
+    const garment = studioModelView();
+    if (garment === 'shirt') return [];
+    if (garment === 'waistcoat') return ['waistcoat'];
+    return design.outfit === 2 ? ['front', 'waistcoat'] : ['front'];
+  }
   const view = activePhoto();
   return showsFullLook() ? fullLookAssets(view, design.outfit === 2, design.outfit === 2 && jacketHidden) : [view];
 }
@@ -209,11 +227,15 @@ function ensurePhoto(view) {
 function renderPreview() {
   const model = get('fabric-model');
   const personal = showsBodyPhoto();
-  const view = personal ? 'front' : activePhoto();
-  const full = personal || showsFullLook();
+  const studio = showsStudioModel();
+  const garmentView = studioModelView();
+  const view = personal || studio ? 'front' : activePhoto();
+  const full = personal || studio || showsFullLook();
   const hideJacket = design.outfit === 2 && jacketHidden;
+  if (studio) loadStudioModel(renderPreview);
   const photographic = personal ? paintBodyTryOn(model, design, {jacketHidden: hideJacket})
-    : full ? paintFullSuit(model, design, view, {face: true, jacketHidden: hideJacket, skinTone})
+    : studio ? paintStudioModel(model, design, garmentView)
+      : full ? paintFullSuit(model, design, view, {face: true, jacketHidden: hideJacket, skinTone})
       : paintGarmentPhoto(model, design, view, split, {face: true, skinTone});
   model.hidden = !photographic;
   const notice = get('photo-notice');
@@ -223,22 +245,23 @@ function renderPreview() {
     notice.textContent = required.some((item) => failedPhotos.has(item)) ? 'This preview could not load. Refresh the page to try again.' : 'Loading preview…';
     for (const item of required) ensurePhoto(item);
   }
-  const mode = personal ? 'INSTANT FIT / FRONT' : full ? 'FULL LOOK / ' + view.toUpperCase()
+  const mode = personal ? 'INSTANT FIT / FRONT' : studio ? 'STUDIO MODEL / ' + garmentView.toUpperCase() : full ? 'FULL LOOK / ' + view.toUpperCase()
     : piece === 'jacket' ? angle.toUpperCase() + ' VIEW' : pieces[piece].toUpperCase();
   get('preview-mode').innerHTML = `<i></i> ${mode}`;
   get('model').classList.toggle('zoomed', zoomed);
   get('model').classList.toggle('full-look', full);
   get('model').classList.toggle('personal-look', personal);
+  get('model').classList.toggle('studio-look', studio);
   const visual = model.closest('.visual');
   visual.classList.toggle('full-look-visual', full);
   visual.classList.toggle('personal-visual', personal);
   get('model').style.setProperty('--zoom-focus', `${zoomFocus}%`);
   const detailSpec = constructionDetails[lookDetail];
   const detailSource = detailSpec?.[0];
-  const sameView = full && !personal && !detailSpec?.[5] && (detailSource === view || (hideJacket && detailSource === 'waistcoat' && view === 'front'));
+  const sameView = full && !personal && !studio && !detailSpec?.[5] && (detailSource === view || (hideJacket && detailSource === 'waistcoat' && view === 'front'));
   const detailCanvas = get('look-detail-image');
   const detailVisible = Boolean(photographic && detailSource && (
-    (personal && !detailSpec[5] && paintBodyFocus(detailCanvas, model, lookDetail, detailSource)) ||
+    ((personal || studio) && !detailSpec[5] && paintBodyFocus(detailCanvas, model, lookDetail, detailSource, studio ? studioModelCapture : tryOnSession.capture)) ||
     paintConstructionFocus(detailCanvas, lookDetail, design, split && !full, sameView ? model : null)));
   if (detailSource && !detailVisible) ensurePhoto(detailSource);
   get('look-detail').hidden = !detailVisible;
@@ -252,7 +275,10 @@ function renderPreview() {
   }
   get('toggle-jacket').hidden = design.outfit !== 2;
   get('toggle-jacket').textContent = hideJacket ? 'Show jacket' : 'Hide jacket';
-  get('skin-tone-control').hidden = personal;
+  get('toggle-waistcoat').hidden = !(studio && hideJacket);
+  get('toggle-waistcoat').textContent = waistcoatHidden ? 'Show waistcoat' : 'Hide waistcoat';
+  get('preview-model-control').hidden = personal || angle !== 'front' || Boolean(faceState.image);
+  get('skin-tone-control').hidden = personal || studio;
   get('open-body').textContent = tryOnSession.capture ? 'Manage try-on photo' : 'Full-body try-on';
   get('open-fit-export').hidden = !(personal && photographic);
   get('open-studio-render').hidden = !(studioGeneration.available && personal && photographic);
@@ -261,8 +287,9 @@ function renderPreview() {
   get('compare').disabled = full || view !== 'front';
   get('compare').setAttribute('aria-pressed', !full && split && view === 'front');
   get('zoom').setAttribute('aria-pressed', zoomed);
-  get('zoom').textContent = zoomed ? '−' : '+';
-  get('zoom').setAttribute('aria-label', zoomed ? 'Reset preview zoom' : 'Zoom preview');
+  const framing = studio ? (zoomed ? 'Full body' : 'Upper body') : (zoomed ? 'Reset preview zoom' : 'Zoom preview');
+  get('zoom').textContent = studio ? framing : zoomed ? '−' : '+';
+  get('zoom').setAttribute('aria-label', framing);
   for (const button of document.querySelectorAll('[data-view]')) {
     button.setAttribute('aria-pressed', button.dataset.view === angle);
   }
@@ -273,6 +300,7 @@ function focusConstruction(key) {
   zoomed = false;
   const view = constructionDetails[key]?.[0];
   if (stylePiece(key) === 'jacket') jacketHidden = false;
+  if (stylePiece(key) === 'waistcoat') waistcoatHidden = false;
   if (detailViews[key]) angle = detailViews[key];
   else if (['front', 'trousers', 'waistcoat'].includes(view)) angle = 'front';
 }
@@ -391,6 +419,7 @@ get('next-fabrics').addEventListener('click', () => { fabricPage += 1; mountSwat
 get('outfit').addEventListener('change', (event) => {
   design.outfit = Number(event.target.value);
   jacketHidden = false;
+  waistcoatHidden = false;
   lookDetail = '';
   angle = 'front';
   zoomed = false;
@@ -485,10 +514,25 @@ document.querySelector('.angles').addEventListener('click', (event) => {
 
 get('toggle-jacket').addEventListener('click', () => {
   jacketHidden = !jacketHidden;
+  waistcoatHidden = false;
   if (angle === 'inside') angle = 'front';
+  lookDetail = '';
+  renderPreview();
+});
+
+get('toggle-waistcoat').addEventListener('click', () => {
+  waistcoatHidden = !waistcoatHidden;
+  lookDetail = '';
+  renderPreview();
+});
+
+get('preview-model').value = modelPreference;
+get('preview-model').addEventListener('change', (event) => {
+  modelPreference = event.target.value;
   lookDetail = '';
   zoomed = false;
   renderPreview();
+  save();
 });
 
 get('skin-tone').value = skinTone;
@@ -519,6 +563,7 @@ get('close-look-detail').addEventListener('click', () => {
 get('reset').addEventListener('click', () => {
   design = {...defaults};
   jacketHidden = false;
+  waistcoatHidden = false;
   lookDetail = '';
   piece = 'jacket';
   angle = 'front';

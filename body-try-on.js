@@ -462,9 +462,9 @@ function clearBodyTryOn() {
   tryOnLayers.clear();
 }
 
-function paintBodyFocus(canvas, model, detail, source) {
+function paintBodyFocus(canvas, model, detail, source, capture) {
   if (!['front', 'trousers', 'waistcoat'].includes(source)) return false;
-  const {point, width, height} = prepareTryOnDisplay(tryOnSession.capture);
+  const {point, width, height} = prepareTryOnDisplay(capture);
   const shoulders = [point(11), point(12)].sort((a, b) => a[0] - b[0]);
   const hips = [point(23), point(24)].sort((a, b) => a[0] - b[0]);
   const shoulder = pointBetween(...shoulders, .5);

@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
   <title>Form Atelier | Suit Studio</title>
-  <link rel="stylesheet" href="studio.css?v=cloth-studio">
+  <link rel="stylesheet" href="studio.css?v=studio-model">
   <script src="neckline-catalog.js" defer></script>
   <script src="catalog.js?v=cloth-studio" defer></script>
   <script src="fit-icons.js" defer></script>
@@ -28,12 +28,14 @@
   <script src="size-passport.js" defer></script>
   <script src="body-pose.js?v=front-pose" defer></script>
   <script src="body-capture.js?v=consistent-frames" defer></script>
-  <script src="body-try-on.js?v=cloth-studio" defer></script>
+  <script src="body-try-on.js?v=studio-model" defer></script>
+  <script src="studio-model-image.js" defer></script>
+  <script src="studio-model.js" defer></script>
   <script src="studio-render.js?v=instant-fit-export" defer></script>
   <!-- 3D rendering disabled -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
   <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
-  <script src="studio.js?v=cloth-studio" defer></script>
+  <script src="studio.js?v=studio-model" defer></script>
 </head>
 <body>
   <header class="top">
@@ -135,6 +137,10 @@
                 <button type="button" data-view="back" aria-pressed="false">Back</button>
               </div>
               <button id="toggle-jacket" type="button" hidden>Hide jacket</button>
+              <button id="toggle-waistcoat" type="button" hidden>Hide waistcoat</button>
+              <label id="preview-model-control">Model<select id="preview-model">
+                <option value="studio">Studio model</option><option value="mannequin">Mannequin</option>
+              </select></label>
               <label id="skin-tone-control">Skin tone<select id="skin-tone">
                 <option value="0">Mannequin</option><option value="1">Light</option><option value="2">Medium</option>
                 <option value="3">Tan</option><option value="4">Deep</option><option value="5">Rich deep</option>
