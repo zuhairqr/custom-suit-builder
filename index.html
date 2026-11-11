@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
+  <title>Form Atelier | Suit Studio</title>
+  <link rel="stylesheet" href="studio.css?v=live-preview-stage">
+  <script src="neckline-catalog.js" defer></script>
+  <script src="catalog.js?v=neckline-catalog" defer></script>
+  <script src="fit-icons.js" defer></script>
+  <script src="mannequin-front.js" defer></script>
+  <script src="mannequin-inside.js" defer></script>
+  <script src="mannequin-back.js" defer></script>
+  <script src="mannequin-trousers.js" defer></script>
+  <script src="mannequin-trousers-back.js" defer></script>
+  <script src="mannequin-waistcoat.js" defer></script>
+  <script src="mannequin-waistcoat-back.js" defer></script>
+  <script src="garment-details.js?v=neck-shadow-fix" defer></script>
+  <script src="suit-pieces.js?v=waistcoat-opening" defer></script>
+  <script src="construction-details.js?v=photo-cloth" defer></script>
+  <script src="cloth-samples.js" defer></script>
+  <script src="fabric-renderer.js?v=cloth-detail-balance" defer></script>
+  <script src="face-camera.js" defer></script>
+  <script src="full-suit.js?v=waistcoat-opening" defer></script>
+  <script src="size-passport.js" defer></script>
+  <script src="body-pose.js?v=front-pose" defer></script>
+  <script src="body-capture.js?v=consistent-frames" defer></script>
+  <script src="body-try-on.js?v=source-cloth-fit" defer></script>
+  <script src="studio-render.js?v=instant-fit-export" defer></script>
+  <!-- 3D rendering disabled -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
+  <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
+  <script src="studio.js?v=full-angle-preview" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#studio"><span class="mark" aria-hidden="true">◈</span><span>FORM ATELIER<small>MADE TO MEASURE</small></span></a>
+    <nav aria-label="Order progress">
+      <a href="#studio">01 <span>Design</span></a>
+      <a href="#fit">02 <span>Size Passport</span></a>
+      <a href="#checkout">03 <span>Review</span></a>
+    </nav>
+    <a class="bag" href="#cart">Bag <span id="bag-count">0</span></a>
+  </header>
+  <main>
+    <section id="studio" class="page">
+      <div class="intro">
+        <div><p class="eyebrow">THE BESPOKE STUDIO <span> / </span> NO. 01</p><h1>Design your suit<span>.</span></h1></div>
+        <p>Choose your cloth, shape the cut, and see the details come together.</p>
+      </div>
+      <div class="outfit-bar">
+        <label for="outfit">Suit pieces</label>
+        <select id="outfit"></select>
+        <div class="piece-tabs" id="piece-tabs" aria-label="Piece to customize">
+          <button type="button" data-piece="jacket" aria-pressed="true">Jacket</button>
+          <button type="button" data-piece="trousers" aria-pressed="false" hidden>Trousers</button>
+          <button type="button" data-piece="waistcoat" aria-pressed="false" hidden>Waistcoat (inner)</button>
+        </div>
+      </div>
+      <div class="frame">
+        <div class="workbench">
+          <aside class="glass cloth" aria-labelledby="cloth-title">
+            <p class="eyebrow">01 / MATERIAL</p>
+            <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count"></span></div>
+            <label class="sr-only" for="fabric-search">Search fabrics</label>
+            <input id="fabric-search" type="search" placeholder="Color, weave, or code" autocomplete="off">
+            <label class="sr-only" for="fabric-filter">Filter fabrics</label>
+            <select id="fabric-filter">
+              <option value="all">All fabrics</option>
+              <option value="collection">Collection swatches</option>
+              <option value="wool">Wool</option>
+              <option value="summer">Linen &amp; summer blends</option>
+              <option value="occasion">Evening &amp; textured</option>
+            </select>
+            <div id="swatches" class="swatches"></div>
+            <div class="fabric-pages" aria-label="Fabric pages">
+              <button id="previous-fabrics" type="button" aria-label="Previous fabric page">‹</button>
+              <span id="fabric-page" aria-live="polite"></span>
+              <button id="next-fabrics" type="button" aria-label="Next fabric page">›</button>
+            </div>
+            <div id="fabric-detail" class="fabric-detail" aria-live="polite"></div>
+            <button id="inspect-fabric" class="inspect" type="button">Inspect fabric <span aria-hidden="true">↗</span></button>
+            <button id="open-collections" class="inspect" type="button" aria-haspopup="dialog">Explore collection looks <span aria-hidden="true">↗</span></button>
+          </aside>
+          <section class="visual" aria-label="Garment preview">
+            <div class="view-header">
+              <span id="preview-mode"><i></i> PREVIEW</span>
+              <div class="view-tools">
+                <button type="button" id="open-body" class="try-on-trigger" aria-haspopup="dialog">Full-body try-on</button>
+                <button type="button" id="open-fit-export" aria-haspopup="dialog" hidden>Save Instant Fit</button>
+                <button type="button" id="open-studio-render" aria-haspopup="dialog" hidden>Studio render</button>
+                <button type="button" id="open-face" aria-haspopup="dialog">Add your face</button>
+                <button type="button" id="compare" aria-pressed="true">Compare fabrics</button>
+              </div>
+            </div>
+            <div class="model-stage">
+              <div id="model" class="model"><canvas id="fabric-model" role="img"></canvas></div>
+              <figure id="look-detail" class="look-detail" hidden>
+                <div class="detail-top"><span id="look-detail-mode">CONSTRUCTION CLOSE-UP</span><button id="close-look-detail" type="button" aria-label="Close construction close-up">×</button></div>
+                <canvas id="look-detail-image" width="560" height="490" aria-hidden="true"></canvas>
+                <figcaption><strong id="look-detail-label"></strong><span id="look-detail-choice"></span></figcaption>
+              </figure>
+              <p id="photo-notice" class="photo-notice" role="status">Loading preview…</p>
+            </div>
+            <div class="visual-foot">
+              <div class="angles" id="preview-angles" aria-label="Preview angle">
+                <button type="button" data-view="front" aria-pressed="true">Front</button>
+                <button type="button" data-view="inside" aria-pressed="false">Inside</button>
+                <button type="button" data-view="back" aria-pressed="false">Back</button>
+              </div>
+              <button id="zoom" class="zoom" type="button" aria-label="Zoom preview" aria-pressed="false">+</button>
+            </div>
+          </section>
+          <aside class="glass tailoring" aria-labelledby="tailoring-title">
+            <p class="eyebrow">02 / CONSTRUCTION</p>
+            <div class="panel-title"><h2 id="tailoring-title">Style</h2><button id="reset" type="button" class="quiet">Reset</button></div>
+            <label class="sr-only" for="style-jump">Jump to a detail</label>
+            <select id="style-jump"><option value="">Jump to a detail</option></select>
+            <button id="open-necklines" class="inspect" type="button" aria-haspopup="dialog">105 neckline styles <span aria-hidden="true">↗</span></button>
+            <div id="style-groups"></div>
+          </aside>
+        </div>
+      </div>
+      <div class="order-bar">
+        <div><span class="eyebrow">YOUR CONFIGURATION</span><strong id="design-summary"></strong></div>
+        <div class="order-actions"><span><small>CONFIGURATION TOTAL</small><strong id="price"></strong></span><button id="add" class="primary" type="button">Add to bag <span aria-hidden="true">↗</span></button></div>
+      </div>
+    </section>
+    <section id="cart" class="page follow-up" hidden>
+      <p class="eyebrow">YOUR CONFIGURATION</p><h1>Your bag<span>.</span></h1>
+      <div id="cart-lines"></div>
+      <div class="steps"><a class="secondary" href="#studio">← Continue designing</a><a class="primary" id="to-fit" href="#fit">Open Size Passport →</a></div>
+    </section>
+    <section id="fit" class="page follow-up" hidden>
+      <p class="eyebrow">02 / FIT PROFILE</p><h1>Size Passport<span>.</span></h1>
+      <p>Enter the measurements for each piece in your bag. The label size is optional.</p>
+      <form id="fit-form">
+        <label class="passport-unit" for="passport-unit">Measurement unit
+          <select id="passport-unit"><option value="cm">Centimetres (cm)</option><option value="in">Inches (in)</option></select>
+        </label>
+        <div id="passport-items"></div>
+        <h2>Body features</h2>
+        <p>Select the illustrations that best match your natural stance and build.</p>
+        <div id="body-options"></div>
+        <div class="steps"><a class="secondary" href="#cart">← Back to bag</a><button class="primary" type="submit">Continue to review →</button></div>
+      </form>
+    </section>
+    <section id="checkout" class="page follow-up" hidden>
+      <p class="eyebrow">03 / REVIEW</p><h1>Review your order<span>.</span></h1>
+      <div class="steps review-actions"><a class="secondary" href="#fit">← Edit Size Passport</a><a class="secondary" href="#cart">Edit suit configuration</a></div>
+      <div class="checkout-grid">
+        <section id="review" class="surface" aria-label="Order specifications"></section>
+        <form id="checkout-form" class="surface">
+          <h2>Shipping address</h2>
+          <div class="field-grid">
+            <label>First name<input required autocomplete="given-name" name="first"></label>
+            <label>Last name<input required autocomplete="family-name" name="last"></label>
+            <label class="wide">Email<input required type="email" autocomplete="email" name="email"></label>
+            <label class="wide">Address<input required autocomplete="address-line1" name="address"></label>
+            <label class="wide">Address 2 <span>(optional)</span><input autocomplete="address-line2" name="address2"></label>
+            <label>City<input required autocomplete="address-level2" name="city"></label>
+            <label>State / province<input autocomplete="address-level1" name="state"></label>
+            <label>Postal code<input required autocomplete="postal-code" name="postal"></label>
+            <label>Country<input required autocomplete="country-name" name="country"></label>
+          </div>
+          <p class="notice">Demo checkout. Your order summary stays in this browser session. No payment is collected.</p>
+          <button class="primary" type="submit">Create demo order →</button>
+        </form>
+      </div>
+    </section>
+    <section id="complete" class="page follow-up" hidden>
+      <p class="eyebrow">DEMO ORDER</p><h1>Configuration confirmed<span>.</span></h1>
+      <div id="confirmation" class="surface"></div>
+      <div class="steps"><a class="primary" href="#studio">Return to the studio →</a></div>
+    </section>
+  </main>
+  <footer>
+    <span>FORM ATELIER / SUIT STUDIO</span>
+    <button id="references" type="button" class="quiet">Collection references ↗</button>
+  </footer>
+  <dialog id="fit-export-dialog" class="body-dialog" aria-labelledby="fit-export-title">
+    <form method="dialog"><button aria-label="Close Instant Fit export" class="quiet">✕</button></form>
+    <h2 id="fit-export-title">Save your Instant Fit</h2>
+    <p class="body-intro">Export the current suit preview at its original size. The photo stays in your browser.</p>
+    <label class="body-voice"><input id="fit-export-background" type="checkbox" checked> Use a plain studio background</label>
+    <p id="fit-export-status" class="body-status" role="status"></p>
+    <canvas id="fit-export-result" role="img" aria-label="Instant Fit photo for export"></canvas>
+    <button id="fit-export-download" class="primary" type="button">Save PNG</button>
+  </dialog>
+  <dialog id="studio-render-dialog" class="body-dialog" aria-labelledby="studio-render-title">
+    <form method="dialog"><button aria-label="Close studio render" class="quiet">✕</button></form>
+    <p class="eyebrow">FORM ATELIER / STUDIO RENDER</p>
+    <h2 id="studio-render-title">Generate a studio photo</h2>
+    <p id="studio-render-provider" class="body-intro">FASHN will receive your full-body photo and the selected garment image for this render. The generated image is available from FASHN for up to 60 minutes. <a href="https://docs.fashn.ai/api-overview/data-retention-privacy" target="_blank" rel="noopener noreferrer">Data retention</a></p>
+    <div class="body-controls">
+      <label id="studio-background-control" class="body-voice" hidden><input id="studio-remove-background" type="checkbox" checked> Use a plain studio background</label>
+      <label class="body-voice"><input id="studio-render-consent" type="checkbox"> <span id="studio-render-consent-text">I consent to sending this photo and garment reference to FASHN.</span></label>
+      <button id="studio-render-start" class="primary" type="button" disabled>Generate one render · 4 credits</button>
+    </div>
+    <p id="studio-render-status" class="body-status" role="status"></p>
+    <canvas id="studio-render-result" width="1" height="1" role="img" aria-label="Generated studio try-on preview" hidden></canvas>
+    <button id="studio-render-zoom" class="quiet" type="button" aria-pressed="false" hidden>View full size</button>
+    <button id="studio-render-download" class="quiet" type="button" hidden>Save try-on photo</button>
+  </dialog>
+  <dialog id="neckline-dialog" class="body-dialog" aria-labelledby="neckline-title">
+    <form method="dialog"><button aria-label="Close neckline catalog" class="quiet">✕</button></form>
+    <p class="eyebrow">TAILORING LIBRARY / 105 STYLES</p>
+    <h2 id="neckline-title">Lapels, collars &amp; necklines</h2>
+    <p class="body-intro">Apply suit lapels to your jacket. Collars and necklines for other garments are listed for reference.</p>
+    <label class="sr-only" for="neckline-category">Style category</label>
+    <select id="neckline-category"></select>
+    <p id="neckline-count" class="body-indicator eyebrow" aria-live="polite"></p>
+    <ol id="neckline-list" class="neckline-list"></ol>
+  </dialog>
+  <dialog id="body-dialog" class="body-dialog" aria-labelledby="body-title">
+    <form method="dialog"><button aria-label="Close full-body capture" class="quiet">✕</button></form>
+    <p class="eyebrow">FORM ATELIER / PERSONAL FIT PREVIEW</p>
+    <h2 id="body-title">See the suit on you</h2>
+    <p class="body-intro">Face the camera with your arms relaxed and both feet visible. Hold still when the guide locks and it will take the photo automatically.</p>
+    <div class="body-controls">
+      <button id="body-start" class="primary" type="button">Start camera</button>
+      <button id="body-switch" class="secondary" type="button" hidden>Switch camera</button>
+      <button id="body-manual" class="secondary" type="button" hidden disabled>Capture now</button>
+      <label class="secondary photo-picker">Choose full-body photo<input id="body-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <label class="body-voice"><input id="body-voice" type="checkbox"> Spoken guidance</label>
+    </div>
+    <div id="body-stage" class="body-stage" hidden>
+      <video id="body-video" autoplay playsinline muted aria-label="Live full-body camera preview"></video>
+      <div class="body-guide" aria-hidden="true"></div>
+      <div id="body-countdown" class="body-countdown" aria-hidden="true" hidden></div>
+    </div>
+    <canvas id="body-still" width="1" height="1" role="img" aria-label="Validated full-body photograph" hidden></canvas>
+    <p id="body-indicator" class="body-indicator eyebrow">CAMERA OFF</p>
+    <p id="body-status" class="body-status" role="status"></p>
+    <div class="body-controls">
+      <button id="body-retake" class="secondary" type="button" hidden>Retake photo</button>
+      <button id="body-download" class="quiet" type="button" hidden>Download capture</button>
+      <button id="body-apply" class="primary" type="button" disabled>Continue to virtual try-on</button>
+      <button id="body-remove" class="quiet" type="button" hidden>Remove my photo</button>
+    </div>
+    <p class="body-privacy">The instant preview processes your photo in this tab. Studio rendering requires separate consent. Use Size Passport for tailoring measurements.</p>
+  </dialog>
+  <dialog id="face-dialog" class="face-dialog" aria-labelledby="face-title">
+    <form method="dialog"><button aria-label="Close face editor" class="quiet">✕</button></form>
+    <h2 id="face-title">Put your face on the mannequin</h2>
+    <p class="face-note">Align your face with the oval, then capture and adjust. Your photo stays in this tab until you remove it or leave the page.</p>
+    <div class="face-actions">
+      <button id="enable-camera" class="secondary" type="button">Enable camera</button>
+      <button id="capture-face" class="primary" type="button" hidden disabled>Capture face</button>
+      <label class="secondary photo-picker">Choose photo<input id="face-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+    </div>
+    <div id="camera-stage" class="camera-stage" hidden>
+      <video id="face-video" autoplay playsinline muted aria-label="Live camera preview"></video>
+      <span class="face-guide" aria-hidden="true"></span>
+    </div>
+    <p id="face-status" class="face-note" role="status"></p>
+    <div id="face-adjustments" class="face-adjustments" hidden>
+      <canvas id="face-draft" width="180" height="244" role="img" aria-label="Face alignment preview"></canvas>
+      <div class="face-sliders">
+        <label>Photo zoom <input id="face-scale" type="range" min="1" max="3" step=".02" value="1"></label>
+        <label>Left / right <input id="face-x" type="range" min="-1" max="1" step=".02" value="0"></label>
+        <label>Up / down <input id="face-y" type="range" min="-1" max="1" step=".02" value="0"></label>
+      </div>
+    </div>
+    <div class="face-actions face-footer">
+      <button id="apply-face" type="button" class="primary" disabled>Apply face</button>
+      <button id="remove-face" type="button" class="quiet" hidden>Remove face</button>
+    </div>
+  </dialog>
+  <dialog id="fabric-dialog" class="fabric-dialog">
+    <form method="dialog"><button aria-label="Close fabric detail" class="quiet">✕</button></form>
+    <p class="eyebrow">MATERIAL / CLOSE-UP</p>
+    <h2 id="fabric-dialog-title"></h2>
+    <p id="fabric-dialog-material"></p>
+    <p id="fabric-dialog-source" class="eyebrow"></p>
+    <canvas id="fabric-macro" width="640" height="440" aria-hidden="true"></canvas>
+  </dialog>
+  <dialog id="source-dialog" aria-labelledby="source-title">
+    <form method="dialog"><button aria-label="Close references" class="quiet">✕</button></form>
+    <h2 id="source-title">Collection looks</h2>
+    <p class="collection-intro">Compare original references with editable Form Atelier looks. Applying a look replaces the current fabric and construction with a studio preset.</p>
+    <div id="collection-looks" class="collection-looks"></div>
+  </dialog>
+  <div id="status" class="sr-only" role="status"></div>
+</body>
+</html>
