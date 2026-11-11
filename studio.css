@@ -102,6 +102,12 @@ select, input { width: 100%; background: #f8f8f6; color: #17222c; border: 1px so
 .personal-visual .model-stage { background: #d0d3d2; }
 .model { position: absolute; inset: 8px 0 10px; }
 .model canvas { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(6px 8px 12px #27323836); transition: transform .25s ease, transform-origin .25s ease; }
+.studio-faces { position: absolute; z-index: 1; left: 10px; top: 50%; transform: translateY(-50%); display: grid; gap: 7px; }
+.studio-faces button { width: clamp(36px, 4.4vw, 58px); aspect-ratio: 1; border-radius: 4px; border: 1px solid #727775; background: #f5f5f1; padding: 1px; overflow: hidden; }
+.studio-faces button canvas { width: 100%; height: 100%; display: block; object-fit: contain; filter: grayscale(1); opacity: .64; }
+.studio-faces button:hover canvas, .studio-faces button[aria-pressed="true"] canvas { filter: none; opacity: 1; }
+.studio-faces button[aria-pressed="true"] { border: 2px solid #23384d; box-shadow: 0 0 0 2px #fff; }
+.studio-faces button:focus-visible { outline: 2px solid #31516b; outline-offset: 3px; }
 #three-container { width: 100%; height: 100%; min-height: 480px; display: block; position: relative; }
 #three-container canvas { display: block !important; width: 100% !important; height: 100% !important; position: absolute; inset: 0; }
 .model.zoomed canvas { transform: scale(1.65); transform-origin: center var(--zoom-focus, 53%); }
@@ -289,6 +295,7 @@ dialog::backdrop { background: #000a; }
   .workbench { gap: 7px; padding: 6px; }
   .full-look-visual { height: clamp(315px, 64svh, 430px); }
   .visual-foot { gap: 4px; }
+  .studio-faces { left: 5px; gap: 5px; }
   .visual-foot button, #preview-model { padding-inline: 6px; }
   .swatch canvas { height: 48px; }
   .detail-top { padding: 5px; font-size: 8px; }

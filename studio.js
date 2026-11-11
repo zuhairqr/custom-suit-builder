@@ -48,6 +48,7 @@ let piece = 'jacket';
 let jacketHidden = false;
 let waistcoatHidden = false;
 let modelPreference = saved.modelPreference === 'mannequin' ? 'mannequin' : 'studio';
+let studioFaceId = studioFaces.some(({id}) => id === saved.studioFaceId) ? saved.studioFaceId : 'original';
 let skinTone = Number.isInteger(saved.skinTone) && mannequinTones[saved.skinTone] ? saved.skinTone : 0;
 let split = true;
 let zoomed = false;
@@ -67,7 +68,7 @@ const collectionCodes = new Set(collectionLooks.map(({fabric}) => fabric));
 
 function save() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone, modelPreference}));
+    localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone, modelPreference, studioFaceId}));
   } catch {
     // The current tab can still hold the configuration when storage is disabled.
   }
@@ -232,9 +233,14 @@ function renderPreview() {
   const view = personal || studio ? 'front' : activePhoto();
   const full = personal || studio || showsFullLook();
   const hideJacket = design.outfit === 2 && jacketHidden;
-  if (studio) loadStudioModel(renderPreview);
+  if (studio) {
+    loadStudioModel(() => {
+      if (studioModelCapture) loadStudioFaces(get('studio-faces'), renderPreview);
+      renderPreview();
+    });
+  }
   const photographic = personal ? paintBodyTryOn(model, design, {jacketHidden: hideJacket})
-    : studio ? paintStudioModel(model, design, garmentView)
+    : studio ? paintStudioModel(model, design, garmentView, studioFaceId)
       : full ? paintFullSuit(model, design, view, {face: true, jacketHidden: hideJacket, skinTone})
       : paintGarmentPhoto(model, design, view, split, {face: true, skinTone});
   model.hidden = !photographic;
@@ -265,6 +271,9 @@ function renderPreview() {
     paintConstructionFocus(detailCanvas, lookDetail, design, split && !full, sameView ? model : null)));
   if (detailSource && !detailVisible) ensurePhoto(detailSource);
   get('look-detail').hidden = !detailVisible;
+  const facePicker = get('studio-faces');
+  facePicker.hidden = !(studio && photographic && studioPortraits && !detailVisible);
+  for (const button of facePicker.children) button.setAttribute('aria-pressed', String(button.dataset.studioFace === studioFaceId));
   get('model').closest('.model-stage').classList.toggle('detail-active', detailVisible);
   if (detailVisible) {
     const [label, options] = styleGroups[lookDetail];
@@ -531,6 +540,14 @@ get('preview-model').addEventListener('change', (event) => {
   modelPreference = event.target.value;
   lookDetail = '';
   zoomed = false;
+  renderPreview();
+  save();
+});
+
+get('studio-faces').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-studio-face]');
+  if (!button || studioFaceId === button.dataset.studioFace) return;
+  studioFaceId = button.dataset.studioFace;
   renderPreview();
   save();
 });

@@ -135,11 +135,12 @@ function shapeClosedStudioJacket(jacket, closure) {
   return layer;
 }
 
-function paintStudioModel(canvas, design, garmentView) {
+function paintStudioModel(canvas, design, garmentView, faceId) {
   if (!studioModelCapture) return false;
   const needsJacket = garmentView === 'jacket';
   const needsVest = design.outfit === 2 && garmentView !== 'shirt';
-  const key = JSON.stringify(['studio-model', design, clothAppearance(design), garmentView]);
+  const face = studioPortraits ? studioFaces.find(({id}) => id === faceId) : null;
+  const key = JSON.stringify(['studio-model', design, clothAppearance(design), garmentView, face?.id]);
   if (renderedCanvases.get(canvas) === key) return true;
   let garment;
   if (needsJacket) {
@@ -157,6 +158,7 @@ function paintStudioModel(canvas, design, garmentView) {
   canvas.height = height;
   const output = canvas.getContext('2d');
   paintStudioModelTrousers(output, display, design);
+  if (face?.crop) paintStudioFace(output, width, height, face.id);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the
     // shoulders and sleeves, so the shirt cannot show through the armholes.
@@ -178,7 +180,7 @@ function paintStudioModel(canvas, design, garmentView) {
   }
   const fabric = fabrics[design.fabric].name;
   const view = {jacket: outfits[design.outfit].name.toLowerCase(), waistcoat: 'waistcoat and trousers', shirt: 'shirt and trousers'}[garmentView];
-  canvas.setAttribute('aria-label', `${fabric} ${view} on the studio model, front view`);
+  canvas.setAttribute('aria-label', `${fabric} ${view} on the studio model, front view${face?.crop ? `, ${face.name}` : ''}`);
   renderedCanvases.set(canvas, key);
   return true;
 }
