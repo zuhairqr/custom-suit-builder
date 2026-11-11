@@ -7,27 +7,35 @@ const studioModelPose = {
   15: [223, 912], 16: [654, 912], 23: [322, 832], 24: [555, 832],
   25: [337, 1250], 26: [540, 1250], 27: [334, 1602], 28: [537, 1602],
 };
-let studioModelCapture;
-let studioModelRequested = false;
-let studioModelUnavailable = false;
+const studioModelCaptures = new Map();
+const studioModelRequests = new Set();
+const studioModelFailures = new Set();
 
-function loadStudioModel(onLoad) {
-  if (studioModelRequested) return;
-  studioModelRequested = true;
+function studioModelDirection(angle) {
+  return angle === 'back' ? 'back' : 'front';
+}
+
+function loadStudioModel(direction, onLoad) {
+  if (studioModelRequests.has(direction)) return;
+  studioModelRequests.add(direction);
+  const rear = direction === 'back';
   const image = new Image();
   image.onload = () => {
     const photo = makeCanvas(image.naturalWidth, image.naturalHeight);
     photo.getContext('2d').drawImage(image, 0, 0);
     const pose = Object.fromEntries(Object.entries(studioModelPose).map(([index, [x, y]]) =>
       [index, {x: x / 887, y: y / 1774}]));
-    studioModelCapture = {photo, pose, bounds: {head: 0, foot: 1, left: .17, right: .81}, faceBottom: 267 / 1774};
+    studioModelCaptures.set(direction, {
+      photo, pose, rear, bounds: {head: 0, foot: 1, left: .17, right: .81},
+      faceBottom: (rear ? 245 : 267) / 1774,
+    });
     onLoad();
   };
   image.onerror = () => {
-    studioModelUnavailable = true;
+    studioModelFailures.add(direction);
     onLoad();
   };
-  image.src = studioModelImage;
+  image.src = rear ? studioRearModelImage : studioModelImage;
 }
 
 function studioModelBody(display) {
@@ -41,8 +49,8 @@ function studioModelBody(display) {
   return body;
 }
 
-function studioModelClothes(display) {
-  if (studioModelCapture.clothes) return studioModelCapture.clothes;
+function studioModelClothes(display, capture) {
+  if (capture.clothes) return capture.clothes;
   const {width, height, photoFrame} = display;
   const base = makeCanvas(width, height);
   const trousers = makeCanvas(width, height);
@@ -51,12 +59,13 @@ function studioModelClothes(display) {
   shirt.drawImage(photoFrame, 0, 0);
   const photo = shirt.getImageData(0, 0, width, height);
   const cloth = pants.createImageData(width, height);
-  for (let y = Math.floor(height * .413); y < height * .928; y++) {
+  const trouserEnd = capture.rear ? .938 : .928;
+  for (let y = Math.floor(height * .413); y < height * trouserEnd; y++) {
     const sourceY = y * 1774 / height;
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
       const sourceX = x * 887 / width;
-      const tieHalf = Math.min(36, (788 - sourceY) * 1.12);
+      const tieHalf = capture.rear ? 0 : Math.min(36, (788 - sourceY) * 1.12);
       // Keep blue-toned shadows on the white cuffs out of the trouser mask.
       if (sourceX < 250 || sourceX > 625 || Math.abs(sourceX - 443) < tieHalf ||
           photo.data[i] > 118 || photo.data[i + 2] - photo.data[i] < 6) continue;
@@ -67,17 +76,17 @@ function studioModelClothes(display) {
   shirt.putImageData(photo, 0, 0);
   pants.putImageData(cloth, 0, 0);
   const trouserOnly = makeCanvas(width, height);
-  studioModelCapture.clothes = {base, trousers, cloth, trouserOnly, fitKey: ''};
-  return studioModelCapture.clothes;
+  capture.clothes = {base, trousers, cloth, trouserOnly, fitKey: ''};
+  return capture.clothes;
 }
 
-function paintStudioModelTrousers(output, display, design) {
-  const {base, trousers, cloth, trouserOnly} = studioModelClothes(display);
+function paintStudioModelTrousers(output, display, design, capture) {
   if (!design.outfit) {
     output.drawImage(display.photoFrame, 0, 0);
     return;
   }
-  const state = studioModelCapture.clothes;
+  const state = studioModelClothes(display, capture);
+  const {base, trousers, cloth, trouserOnly} = state;
   const key = JSON.stringify([garmentSettings.trousers.map((name) => design[name]), photoCloth(design.fabric)]);
   if (state.fitKey !== key) {
     const ctx = trouserOnly.getContext('2d');
@@ -105,7 +114,7 @@ function paintStudioModelTrousers(output, display, design) {
     ctx.scale(.66, .67);
     // Preserve photographed seams for the standard cut. Add the selected
     // construction over them only when the customer changes it.
-    paintTrousers(ctx, {...design, trouserPocket: design.trouserPocket === 1 ? 1 : 2});
+    paintTrousers(ctx, {...design, trouserPocket: design.trouserPocket === 1 ? 1 : 2}, capture.rear);
     ctx.restore();
     ctx.globalCompositeOperation = 'destination-in';
     ctx.drawImage(trousers, 0, 0);
@@ -135,36 +144,67 @@ function shapeClosedStudioJacket(jacket, closure) {
   return layer;
 }
 
-function paintStudioModel(canvas, design, garmentView, faceId) {
-  if (!studioModelCapture) return false;
-  const needsJacket = garmentView === 'jacket';
-  const needsVest = design.outfit === 2 && garmentView !== 'shirt';
-  const face = studioPortraits ? studioFaces.find(({id}) => id === faceId) : null;
-  const key = JSON.stringify(['studio-model', design, clothAppearance(design), garmentView, face?.id]);
-  if (renderedCanvases.get(canvas) === key) return true;
-  let garment;
-  if (needsJacket) {
-    garment = composeTryOnJacket(design, needsVest, needsVest);
-    if (garment && !needsVest) garment = shapeClosedStudioJacket(garment, design.closure);
-  } else if (needsVest) {
-    garment = tryOnLayer('studio-vest');
-    if (!paintGarmentPhoto(garment, design, 'waistcoat', false, {garmentOnly: true})) return false;
+function studioGarmentAssets(angle, garmentView, outfit) {
+  if (garmentView === 'shirt') return [];
+  const vest = angle === 'back' ? 'waistcoatBack' : 'waistcoat';
+  if (garmentView === 'waistcoat') return [vest];
+  return angle !== 'back' && outfit === 2 ? [angle, vest] : [angle];
+}
+
+function paintStudioGarment(design, angle, garmentView) {
+  const [primary, secondary] = studioGarmentAssets(angle, garmentView, design.outfit);
+  if (!primary) return null;
+  if (angle === 'front' && garmentView === 'jacket') {
+    const garment = composeTryOnJacket(design, Boolean(secondary), Boolean(secondary));
+    return garment && !secondary ? shapeClosedStudioJacket(garment, design.closure) : garment;
   }
-  if ((needsJacket || needsVest) && !garment) return false;
-  const display = prepareTryOnDisplay(studioModelCapture);
+  const garment = tryOnLayer('studio-angle-garment');
+  if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true})) return null;
+  if (!secondary) return garment;
+
+  const vest = tryOnLayer('studio-inside-waistcoat');
+  if (!paintGarmentPhoto(vest, design, secondary, false, {garmentOnly: true})) return null;
+  const layered = tryOnLayer('studio-inside-jacket');
+  layered.width = garment.width;
+  layered.height = garment.height;
+  const output = layered.getContext('2d');
+  output.scale(layered.width / 1024, layered.height / 1536);
+  output.save();
+  output.clip(new Path2D(insideOpening));
+  output.clip(new Path2D(vestOutline));
+  output.drawImage(vest, 0, 0, 1024, 1536);
+  output.restore();
+  output.drawImage(garment, 0, 0, 1024, 1536);
+  return layered;
+}
+
+function paintStudioModel(canvas, design, angle, garmentView, faceId) {
+  const capture = studioModelCaptures.get(studioModelDirection(angle));
+  const face = studioFaces.find(({id}) => id === faceId);
+  const portraits = capture?.rear ? studioRearPortraits : studioPortraits;
+  if (!capture || (face?.crop && !portraits)) return false;
+  const needsJacket = garmentView === 'jacket';
+  const key = JSON.stringify(['studio-model', design, clothAppearance(design), angle, garmentView, faceId]);
+  if (renderedCanvases.get(canvas) === key) return true;
+  const garment = paintStudioGarment(design, angle, garmentView);
+  if (garmentView !== 'shirt' && !garment) return false;
+  const display = prepareTryOnDisplay(capture);
   const {width, height} = display;
   const body = studioModelBody(display);
   canvas.width = width;
   canvas.height = height;
   const output = canvas.getContext('2d');
-  paintStudioModelTrousers(output, display, design);
-  if (face?.crop) paintStudioFace(output, width, height, face.id);
+  paintStudioModelTrousers(output, display, design, capture);
+  if (face?.crop) paintStudioFace(output, width, height, face, capture.rear);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the
     // shoulders and sleeves, so the shirt cannot show through the armholes.
     output.save();
     output.scale(width / 887, height / 1774);
-    const sleeveMask = new Path2D('M0 268H887V909H0Z M370 268H506Q530 310 532 345L521 909H356L351 345Q354 304 370 268Z');
+    const collarOpening = capture.rear
+      ? 'M371 278H516L539 318H348Z'
+      : 'M370 268H506Q530 310 532 345L521 909H356L351 345Q354 304 370 268Z';
+    const sleeveMask = new Path2D(`M0 ${capture.rear ? 278 : 268}H887V909H0Z ${collarOpening}`);
     output.clip(sleeveMask, 'evenodd');
     output.clearRect(0, 268, 887, 641);
     output.restore();
@@ -174,13 +214,13 @@ function paintStudioModel(canvas, design, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket);
+    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }
   const fabric = fabrics[design.fabric].name;
   const view = {jacket: outfits[design.outfit].name.toLowerCase(), waistcoat: 'waistcoat and trousers', shirt: 'shirt and trousers'}[garmentView];
-  canvas.setAttribute('aria-label', `${fabric} ${view} on the studio model, front view${face?.crop ? `, ${face.name}` : ''}`);
+  canvas.setAttribute('aria-label', `${fabric} ${view} on the studio model, ${angle} view${face?.crop ? `, ${face.name}` : ''}`);
   renderedCanvases.set(canvas, key);
   return true;
 }

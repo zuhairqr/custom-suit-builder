@@ -199,11 +199,11 @@ function fittedRow(display, center, direction, size, low = .75, high = 1.35) {
 
 const openJacketScale = (row) => 1 - .14 * clamp((row - .29) / .54, 0, 1);
 
-function jacketPanelRows(rows, design) {
+function jacketPanelRows(rows, design, spread) {
   return rows.map(([y, ...columns]) => {
     const row = y / 1536;
     const stretch = 1 + jacketSilhouetteStretch(row, design.silhouette, design.shoulder);
-    const opening = design.outfit === 2 ? openJacketScale(row) : 1;
+    const opening = spread ? openJacketScale(row) : 1;
     return [y, ...columns.map((x) => (512 + (x - 512) * stretch) * opening)];
   });
 }
@@ -255,7 +255,7 @@ function putTrousers(ctx, trousers, display, body, design) {
   }
 }
 
-function putJacket(ctx, jacket, display, body, design, vestOnly = false) {
+function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread = design.outfit === 2) {
   const {elbows, wrists, shoulderCenter, hipCenter, torsoLength, knees, span} = body;
   const profile = [1, 1.035, .955][design.silhouette];
   const torso = [hipCenter[0] - shoulderCenter[0], hipCenter[1] - shoulderCenter[1]];
@@ -265,7 +265,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false) {
   // End the sleeve mesh in the source photo's air gap, so it cannot pull
   // a second strip of the jacket body down beside the cuff.
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],
-    [1070, 74, 231], [1324, 71, 204]], design);
+    [1070, 74, 231], [1324, 71, 204]], design, spread);
   const [joinY, outside, inside] = sleeveRows[0];
   const widthAtArmhole = span * .72;
   const shoulderRow = centeredRow(armhole, widthAtArmhole);
@@ -288,7 +288,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false) {
     putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows);
   }
 
-  const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], design)]
+  const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], design, spread)]
     .map(([y, left]) => [[left, y], [1024 - left, y]]);
   const waist = pointBetween(shoulderCenter, hipCenter, .72);
   const fitted = [
