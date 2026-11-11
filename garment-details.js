@@ -148,13 +148,17 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   ctx.shadowColor = clothPhoto ? '#090d1578' : '#090d15a6';
   ctx.shadowBlur = clothPhoto ? 4 : 6;
   ctx.shadowOffsetY = clothPhoto ? 2 : 3;
-  if (finish) {
+  if (bounds.matchBody) {
+    // Pocket cut from matching cloth. Let the jacket's existing grid run
+    // through the pocket and show the cut with the edge and its shadow.
+    ctx.fillStyle = '#09121e16';
+  } else if (finish) {
     ctx.fillStyle = finish;
   } else {
     const tile = clothTile(fabric).tile;
     const pattern = ctx.createPattern(tile, 'repeat');
     const aspectRatio = w / Math.max(1, h);
-    const scaleAdjustment = aspectRatio < 0.6 ? 1.2 : 1.46;
+    const scaleAdjustment = weaveHasLines(fabric) ? 1 / .82 : aspectRatio < 0.6 ? 1.2 : 1.46;
     pattern.setTransform(new DOMMatrix().translate(x, y).rotate(grain).scale(scaleAdjustment));
     ctx.fillStyle = pattern;
   }
@@ -169,6 +173,10 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   ctx.fillStyle = sheen;
   ctx.fill(shape);
   ink(ctx, shape, clothPhoto ? '#0a0d125b' : '#0a0d126e', 1.8);
+}
+
+function weaveHasLines(fabric) {
+  return /^(window|plaid|prince|gunclub|stripe|pinstripe)$/.test(fabrics[fabric].weave);
 }
 
 function paintButton(ctx, x, y, size, finish, fabric) {
@@ -252,9 +260,10 @@ function paintAMF(ctx, path, stitching, x, y, span) {
 
 function paintLowerPocket(ctx, choice, fabric, ticket, stitching) {
   const pocket = lowerPockets[choice];
+  const matchBody = weaveHasLines(fabric);
   if (pocket.welts) welt(ctx, 129, pocket.welts);
   if (pocket.patch) {
-    fabricSurface(ctx, pocket.patch, fabric, {x: 0, y: 0, w: 133, h: 96});
+    fabricSurface(ctx, pocket.patch, fabric, {x: 0, y: 0, w: 133, h: 96, matchBody});
     paintAMF(ctx, pocket.patch, stitching, 65, 45, 95);
   }
   if (pocket.pleat) {
@@ -262,12 +271,12 @@ function paintLowerPocket(ctx, choice, fabric, ticket, stitching) {
     ink(ctx, 'M52 12 L50 90 M82 13 L81 92', '#ffffff54', 1.8);
   }
   if (pocket.flap) {
-    fabricSurface(ctx, pocket.flap, fabric, {x: 0, y: 0, w: 130, h: 60});
+    fabricSurface(ctx, pocket.flap, fabric, {x: 0, y: 0, w: 130, h: 60, matchBody});
     paintAMF(ctx, pocket.flap, stitching, 65, 26, 54);
   }
   if (ticket) {
     ctx.translate(15, -54);
-    fabricSurface(ctx, 'M0 0 H71 L68 29 Q31 37 2 28Z', fabric, {x: 0, y: 0, w: 71, h: 34});
+    fabricSurface(ctx, 'M0 0 H71 L68 29 Q31 37 2 28Z', fabric, {x: 0, y: 0, w: 71, h: 34, matchBody});
   }
 }
 
@@ -295,7 +304,7 @@ function paintBreastPocket(ctx, choice, fabric, square, stitching) {
     const patch = choice === 5 ? 66 : 80;
     const shape = choice === 7 ? 'M0 0H112L110 53Q104 89 57 89Q7 89 1 54Z'
       : `M0 0 H112 L109 ${patch - 14} Q90 ${patch + 9} 11 ${patch} Q1 ${patch - 3} 1 ${patch - 15}Z`;
-    fabricSurface(ctx, shape, fabric, {x: 0, y: 0, w: 110, h: patch});
+    fabricSurface(ctx, shape, fabric, {x: 0, y: 0, w: 110, h: patch, matchBody: weaveHasLines(fabric)});
     paintAMF(ctx, shape, stitching, 56, 39, 78);
     if (choice === 4) {
       ink(ctx, 'M39 8 V72 M65 8 V75', '#10151d83', 2.3);
@@ -312,7 +321,8 @@ function paintFrontDetails(ctx, design, split, open = false) {
   const double = doubleStances.has(closure);
   const closureSeam = double ? 'M512 720 Q482 789 444 876 Q423 1040 425 1452' : 'M512 720 Q509 1045 512 1295 Q508 1380 474 1440';
   if (!open) {
-    ink(ctx, closureSeam, '#0b101ab5', 4.5);
+    ink(ctx, closureSeam, '#09111d45', 10);
+    ink(ctx, closureSeam, '#0b101ac9', 4.5);
     ctx.save();
     ctx.translate(2.4, -1.8);
     ink(ctx, closureSeam, '#ffffff35', 1.9);
@@ -345,7 +355,7 @@ function paintFrontDetails(ctx, design, split, open = false) {
       ctx.scale(1, 1.24);
       ctx.translate(0, -321);
     }
-    fabricSurface(ctx, lapelPath, material, {x: 310, y: 320, w: 202, h: 405, grain: -14}, facing);
+    fabricSurface(ctx, lapelPath, material, {x: 310, y: 320, w: 202, h: 405, grain: weaveHasLines(material) ? -9 : -14}, facing);
 
     // Add subtle depth to lapel edge for better definition
     const lapelDepth = ctx.createLinearGradient(420, 320, 380, 550);

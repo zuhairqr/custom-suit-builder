@@ -116,6 +116,25 @@ function paintStudioModelTrousers(output, display, design) {
   drawTrouserFit(output, trouserOnly, design.trouserFit);
 }
 
+function shapeClosedStudioJacket(jacket, closure) {
+  const layer = tryOnLayer('studio-closed-jacket');
+  layer.width = jacket.width;
+  layer.height = jacket.height;
+  const output = layer.getContext('2d');
+  output.scale(layer.width / 1024, layer.height / 1536);
+  const hemCurve = doubleStances.has(closure)
+    ? 'C819 1401 801 1422 772 1435 Q702 1458 437 1457 Q425 1456 423 1450 Q304 1456 254 1435 C222 1427 209 1402 208 1355'
+    : 'C817 1406 796 1433 760 1441 Q672 1458 578 1444 Q529 1435 512 1394 Q494 1435 445 1444 Q351 1458 264 1441 C229 1433 208 1406 208 1355';
+  output.save();
+  output.clip(new Path2D(`M0 0H1024V1355H816 ${hemCurve} H0Z`));
+  output.drawImage(jacket, 0, 0, 1024, 1536);
+  output.restore();
+  output.globalCompositeOperation = 'source-atop';
+  output.translate(0, -2.5);
+  ink(output, `M816 1355 ${hemCurve}`, '#0b142773', 5);
+  return layer;
+}
+
 function paintStudioModel(canvas, design, garmentView) {
   if (!studioModelCapture) return false;
   const needsJacket = garmentView === 'jacket';
@@ -125,6 +144,7 @@ function paintStudioModel(canvas, design, garmentView) {
   let garment;
   if (needsJacket) {
     garment = composeTryOnJacket(design, needsVest, needsVest);
+    if (garment && !needsVest) garment = shapeClosedStudioJacket(garment, design.closure);
   } else if (needsVest) {
     garment = tryOnLayer('studio-vest');
     if (!paintGarmentPhoto(garment, design, 'waistcoat', false, {garmentOnly: true})) return false;
