@@ -393,13 +393,13 @@ function isolatePhotoCloth(ctx, photo) {
   ctx.restore();
 }
 
-function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, open = false, face = false, fullBody = false, garmentOnly = false, skinTone = 0} = {}) {
+function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, open = false, face = false, fullBody = false, garmentOnly = false, skinTone = 0, shapeJacket = true} = {}) {
   const photo = studioPhotos.get(angle);
   if (!photo) return false;
   split = split && angle === 'front';
   const garment = angle.startsWith('trousers') ? 'trousers' : angle.startsWith('waistcoat') ? 'waistcoat' : 'jacket';
   const faceVersion = face && ['front', 'inside', 'waistcoat'].includes(angle) ? faceState.version : 0;
-  const key = JSON.stringify([garmentSettings[garment].map((key) => design[key]), clothAppearance(design), angle, split, open, faceVersion, thumbnail, fullBody, garmentOnly, skinTone]);
+  const key = JSON.stringify([garmentSettings[garment].map((key) => design[key]), clothAppearance(design), angle, split, open, faceVersion, thumbnail, fullBody, garmentOnly, skinTone, shapeJacket]);
   if (renderedCanvases.get(canvas) === key) return true;
 
   const fabric = fabrics[garment === 'waistcoat' ? vestContrast[design.vestCloth] ?? design.fabric : design.fabric].name;
@@ -435,7 +435,7 @@ function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, ope
   const output = canvas.getContext('2d');
   output.scale(canvas.width / width, canvas.height / height);
   if (garment === 'trousers') drawTrouserFit(output, composition, design.trouserFit);
-  else if (garment === 'jacket') applySilhouette(output, composition, design.silhouette, design.shoulder);
+  else if (garment === 'jacket' && shapeJacket) applySilhouette(output, composition, design.silhouette, design.shoulder);
   else output.drawImage(composition, 0, 0);
   if (faceVersion && faceState.image) {
     output.scale(width / 1024, height / 1536);

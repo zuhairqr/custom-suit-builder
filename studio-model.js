@@ -122,8 +122,17 @@ function paintStudioModelTrousers(output, display, design, capture) {
     state.fitKey = key;
   }
   output.drawImage(base, 0, 0);
-  drawTrouserFit(output, trouserOnly, design.trouserFit);
+  drawStudioTrouserFit(output, trouserOnly, display, design);
   return trouserOnly;
+}
+
+function drawStudioTrouserFit(output, trousers, display, design) {
+  if (design.outfit !== 1) {
+    drawTrouserFit(output, trousers, design.trouserFit);
+    return;
+  }
+  const ankleCenters = bodyPoints.ankles.map((index) => display.point(index)[0]);
+  drawTrouserFit(output, trousers, design.trouserFit, .65, ankleCenters);
 }
 
 function shapeClosedStudioJacket(jacket, closure) {
@@ -152,15 +161,15 @@ function studioGarmentAssets(angle, garmentView, outfit) {
   return angle !== 'back' && outfit === 2 ? [angle, vest] : [angle];
 }
 
-function paintStudioGarment(design, angle, garmentView) {
+function paintStudioGarment(design, angle, garmentView, studioFit) {
   const [primary, secondary] = studioGarmentAssets(angle, garmentView, design.outfit);
   if (!primary) return null;
   if (angle === 'front' && garmentView === 'jacket') {
-    const garment = composeTryOnJacket(design, Boolean(secondary), Boolean(secondary));
+    const garment = composeTryOnJacket(design, Boolean(secondary), Boolean(secondary), !studioFit);
     return garment && !secondary ? shapeClosedStudioJacket(garment, design.closure) : garment;
   }
   const garment = tryOnLayer('studio-angle-garment');
-  if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true})) return null;
+  if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true, shapeJacket: !studioFit})) return null;
   if (!secondary) return garment;
 
   const vest = tryOnLayer('studio-inside-waistcoat');
@@ -185,9 +194,10 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   const portraits = capture?.rear ? studioRearPortraits : studioPortraits;
   if (!capture || (face?.crop && !portraits)) return false;
   const needsJacket = garmentView === 'jacket';
+  const studioFit = needsJacket && design.outfit === 1;
   const key = JSON.stringify(['studio-model', design, clothAppearance(design), angle, garmentView, faceId]);
   if (renderedCanvases.get(canvas) === key) return true;
-  const garment = paintStudioGarment(design, angle, garmentView);
+  const garment = paintStudioGarment(design, angle, garmentView, studioFit);
   if (garmentView !== 'shirt' && !garment) return false;
   const display = prepareTryOnDisplay(capture);
   const {width, height} = display;
@@ -214,7 +224,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     // The open lining reveals the trousers below the waistcoat.
     output.save();
     output.globalCompositeOperation = 'destination-over';
-    drawTrouserFit(output, trousers, design.trouserFit);
+    drawStudioTrouserFit(output, trousers, display, design);
     output.restore();
   }
   if (garment) {
@@ -222,7 +232,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2);
+    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2, studioFit);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }
