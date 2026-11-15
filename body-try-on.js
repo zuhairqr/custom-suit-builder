@@ -273,7 +273,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   // The open-lining asset ends higher in its source frame than the closed coat.
   const hemFraction = studioModel ? (studioView === 'inside' ? .52 : .39) : .23;
   const hem = pointBetween(hipCenter, pointBetween(...knees, .5), hemFraction);
-  const neck = [shoulderCenter[0], Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * .16)];
+  const neck = [shoulderCenter[0], Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
   // End the sleeve mesh in the source photo's air gap, so it cannot pull
   // a second strip of the jacket body down beside the cuff.
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],

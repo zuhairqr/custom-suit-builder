@@ -220,11 +220,20 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     output.clearRect(0, 268, 887, 641);
     output.restore();
   }
-  if (needsJacket && angle === 'inside' && trousers) {
-    // The open lining reveals the trousers below the waistcoat.
+  if (needsJacket) {
+    // The front quarters and rear vents can also reveal the trousers. Clearing
+    // the shirt sleeves above removed this underlay, leaving transparent slits.
     output.save();
     output.globalCompositeOperation = 'destination-over';
-    drawStudioTrouserFit(output, trousers, display, design);
+    if (trousers) drawStudioTrouserFit(output, trousers, display, design);
+    else {
+      // Jacket-only looks keep the photographed trousers below the hip, without
+      // restoring the shirt sleeves that the outerwear replaces.
+      output.beginPath();
+      output.rect(body.hipCenter[0] - body.span * .48, body.hipCenter[1], body.span * .96, height - body.hipCenter[1]);
+      output.clip();
+      output.drawImage(display.photoFrame, 0, 0);
+    }
     output.restore();
   }
   if (garment) {

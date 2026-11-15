@@ -195,9 +195,19 @@ test('studio jackets cover the seat across outfits and angles', async t => {
             if (pixels.data[(y * layer.width + x) * 4 + 3] > 200) bottom = y;
           }
         }
-        return {bottom, hip: body.hipCenter[1], knee: pointBetween(...body.knees, .5)[1]};
+        // The quarters/vents must show trousers rather than the page background.
+        const composite = get('fabric-model');
+        const finalPixels = composite.getContext('2d').getImageData(0, 0, composite.width, composite.height).data;
+        let gaps = 0;
+        for (let y = Math.ceil(body.hipCenter[1] + body.torsoLength * .05); y < Math.min(...body.wrists.map(point => point[1])); y++) {
+          for (let x = Math.ceil(body.hipCenter[0] - body.span * .36); x < body.hipCenter[0] + body.span * .36; x++) {
+            if (finalPixels[(y * composite.width + x) * 4 + 3] < 240) gaps++;
+          }
+        }
+        return {bottom, gaps, hip: body.hipCenter[1], knee: pointBetween(...body.knees, .5)[1]};
       });
       assert.ok(fit.bottom > fit.hip + (fit.knee - fit.hip) * .32, `${outfit}/${view} jacket covers the seat`);
+      assert.equal(fit.gaps, 0, `${outfit}/${view} has no transparent slits below the waistcoat`);
     }
   }
 });
