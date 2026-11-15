@@ -232,7 +232,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2, studioFit);
+    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2, studioFit, angle);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }

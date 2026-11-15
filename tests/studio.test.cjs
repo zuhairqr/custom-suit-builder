@@ -23,7 +23,7 @@ before(async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
-  browserServer = await chromium.launchServer({channel: process.env.BROWSER_CHANNEL || 'msedge', headless: true});
+  browserServer = await chromium.launchServer({channel: process.env.BROWSER_CHANNEL || 'msedge', executablePath: process.env.BROWSER_EXECUTABLE_PATH || undefined, headless: true});
   browser = await chromium.connect(browserServer.wsEndpoint());
 });
 after(async () => {
@@ -173,4 +173,31 @@ test('garment views, construction and fabric filters remain usable', async t => 
   await page.locator('#style-jump').selectOption('lapel');
   await page.locator('[data-style="lapel"][data-choice="1"]').click();
   assert.equal(await page.locator('[data-style="lapel"][data-choice="1"]').getAttribute('aria-pressed'), 'true');
+});
+
+test('studio jackets cover the seat across outfits and angles', async t => {
+  const page = await studio(t);
+  for (const outfit of ['0', '1', '2']) {
+    await page.locator('#outfit').selectOption(outfit);
+    for (const view of ['front', 'inside', 'back']) {
+      await page.locator(`[data-view="${view}"]`).click();
+      await page.locator('#fabric-model').waitFor({state: 'visible'});
+      const fit = await page.evaluate(() => {
+        const layer = tryOnLayer('studio-outerwear');
+        const pixels = layer.getContext('2d').getImageData(0, 0, layer.width, layer.height);
+        const body = studioModelBody(prepareTryOnDisplay(studioModelCaptures.get(studioModelDirection(angle))));
+        // Sample rendered panels away from the opening and sleeves, so the
+        // regression measures coat coverage rather than the canvas dimensions.
+        let bottom = 0;
+        for (let y = 0; y < layer.height; y++) {
+          for (const offset of [-.32, .32]) {
+            const x = Math.round(body.hipCenter[0] + body.span * offset);
+            if (pixels.data[(y * layer.width + x) * 4 + 3] > 200) bottom = y;
+          }
+        }
+        return {bottom, hip: body.hipCenter[1], knee: pointBetween(...body.knees, .5)[1]};
+      });
+      assert.ok(fit.bottom > fit.hip + (fit.knee - fit.hip) * .32, `${outfit}/${view} jacket covers the seat`);
+    }
+  }
 });

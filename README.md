@@ -31,8 +31,9 @@ browser, and blocks all external requests. It checks unfinished passport
 persistence, autofill and unit conversion, invalid measurements, bag editing,
 garment controls, fabric filters, mobile width, demo checkout and order download.
 It never uses a live payment or rendering service. To use installed Chrome, set
-`$env:BROWSER_CHANNEL='chrome'` before running. Optional screenshots can be saved
-to an existing directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
+`$env:BROWSER_CHANNEL='chrome'` before running, or set `$env:BROWSER_EXECUTABLE_PATH`
+to a specific browser executable. Optional screenshots can be saved to an existing
+directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
 
 ## Data and integration boundaries
 
