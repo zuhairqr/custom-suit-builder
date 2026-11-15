@@ -260,7 +260,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const studioModel = Boolean(studioView);
   const {elbows, wrists, shoulderCenter, hipCenter, torsoLength, knees, span} = body;
   const profile = [1, 1.035, .955][design.silhouette];
-  // The studio two-piece samples the unscaled photograph. Apply the cut to the
+  // Studio jackets sample the unscaled photograph. Apply the cut to the
   // fitted rows so it changes the silhouette without moving the source seams.
   const sourceDesign = studioFit ? {silhouette: 0, shoulder: 0} : design;
   const shoulderWidth = (width, y) => span * width * (studioFit
@@ -279,7 +279,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],
     [1070, 74, 231], [1324, 71, 204]], sourceDesign, spread);
   const [joinY, outside, inside] = sleeveRows[0];
-  const ease = studioModel ? (vestOnly ? 1.10 : 1.075) : 1;
+  const ease = studioModel ? (vestOnly ? 1.10 : 1.035) : 1;
   const widthAtArmhole = span * .72 * ease;
   const shoulderRow = centeredRow(armhole, widthAtArmhole);
   const torsoRow = centeredRow(armhole, widthAtArmhole * (512 - inside) / (512 - outside));
@@ -306,15 +306,18 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const waist = pointBetween(shoulderCenter, hipCenter, .72);
   const chest = pointBetween(shoulderCenter, hipCenter, .48);
   const fitRow = (center, half, low, high) => {
+    // The studio pose is fixed. Contrast edges inside the photographed shirt
+    // are folds, not waist measurements; fitting to them creates a pinched coat.
+    if (studioModel) return centeredRow(center, span * half * profile * ease);
     const row = fittedRow(display, center, torso, span * half * (studioFit ? 1 : profile), low, high);
     return row.map((point) => pointBetween(center, point, (studioFit ? profile : 1) * ease));
   };
   const fitted = [
     torsoRow,
-    fitRow(chest, .44, .92, 1.13),
-    fitRow(waist, .43, .91, 1.15),
-    centeredRow(hem, span * .51 * profile * ease),
-    centeredRow([hem[0], hem[1] + torsoLength * .04], span * .51 * profile * ease),
+    fitRow(chest, studioModel ? (vestOnly ? .43 : .47) : .44, .92, 1.13),
+    fitRow(waist, studioModel ? (vestOnly ? .41 : .445) : .43, .91, 1.15),
+    centeredRow(hem, span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
+    centeredRow([hem[0], hem[1] + torsoLength * .04], span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
   ];
   warpPanels(ctx, jacket, original, fitted);
 }

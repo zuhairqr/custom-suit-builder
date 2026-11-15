@@ -264,3 +264,43 @@ test('shirt cuff control extends jacket sleeves and switching model exits shirt 
   await page.locator('#preview-model').selectOption('studio');
   assert.equal(await page.locator('[data-piece="shirt"]').isVisible(), true);
 });
+
+test('three-piece jacket stays closed and uses the same balanced cut as the two-piece', async t => {
+  const page = await studio(t);
+  const waistPixels = () => page.evaluate(() => {
+    const canvas = get('fabric-model');
+    const body = studioModelBody(prepareTryOnDisplay(studioModelCaptures.get('front')));
+    return Array.from(canvas.getContext('2d').getImageData(
+      Math.round(body.hipCenter[0] - body.span * .35),
+      Math.round(body.shoulderCenter[1] + body.torsoLength * .65),
+      Math.round(body.span * .7), Math.round(body.torsoLength * .4)).data);
+  });
+  await page.locator('#outfit').selectOption('1');
+  await page.locator('#fabric-model').waitFor({state: 'visible'});
+  const twoPiece = await waistPixels();
+  await page.locator('#outfit').selectOption('2');
+  await page.locator('#fabric-model').waitFor({state: 'visible'});
+  const threePiece = await waistPixels();
+  // The extra compositing pass can round premultiplied color by one level.
+  const maxDifference = threePiece.reduce((max, value, index) => Math.max(max, Math.abs(value - twoPiece[index])), 0);
+  assert.ok(maxDifference <= 2, 'Waistcoat must not replace the front of the closed jacket');
+  const proportions = await page.evaluate(() => {
+    const layer = tryOnLayer('studio-outerwear');
+    const pixels = layer.getContext('2d').getImageData(0, 0, layer.width, layer.height).data;
+    const body = studioModelBody(prepareTryOnDisplay(studioModelCaptures.get('front')));
+    const widthAt = y => {
+      const row = Math.round(y), center = Math.round(body.shoulderCenter[0]);
+      let left = center, right = center;
+      while (left > 0 && pixels[(row * layer.width + left - 1) * 4 + 3] > 240) left--;
+      while (right < layer.width - 1 && pixels[(row * layer.width + right + 1) * 4 + 3] > 240) right++;
+      return right - left + 1;
+    };
+    return {
+      chest: widthAt(body.shoulderCenter[1] + body.torsoLength * .48),
+      waist: widthAt(body.shoulderCenter[1] + body.torsoLength * .72),
+      skirt: widthAt(body.hipCenter[1] + (body.knees[0][1] - body.hipCenter[1]) * .33),
+    };
+  });
+  assert.ok(proportions.waist / proportions.chest >= .87, 'Waist must not be pinched');
+  assert.ok(proportions.skirt / proportions.chest <= 1.12, 'Jacket skirt must not flare out from the chest');
+});

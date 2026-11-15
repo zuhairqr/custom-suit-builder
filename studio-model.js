@@ -161,12 +161,33 @@ function studioGarmentAssets(angle, garmentView, outfit) {
   return angle !== 'back' && outfit === 2 ? [angle, vest] : [angle];
 }
 
+function closedStudioJacket(design) {
+  const jacket = tryOnLayer('studio-jacket-source');
+  if (!paintGarmentPhoto(jacket, design, 'front', false, {garmentOnly: true, shapeJacket: false})) return null;
+  const closed = shapeClosedStudioJacket(jacket, design.closure);
+  if (design.outfit !== 2) return closed;
+  const vest = tryOnLayer('studio-vest-source');
+  if (!paintGarmentPhoto(vest, design, 'waistcoat', false, {garmentOnly: true})) return null;
+  const complete = tryOnLayer('studio-closed-three-piece');
+  complete.width = closed.width;
+  complete.height = closed.height;
+  const output = complete.getContext('2d');
+  output.save();
+  output.scale(complete.width / 1024, complete.height / 1536);
+  // A waistcoat sits behind the jacket, visible only in the lapel opening.
+  // Cutting the whole front open mixes both garments' button rows and hems.
+  output.beginPath(); output.rect(380, 320, 264, 505); output.clip();
+  output.drawImage(vest, 0, 0, 1024, 1536);
+  output.restore();
+  output.drawImage(closed, 0, 0);
+  return complete;
+}
+
 function paintStudioGarment(design, angle, garmentView, studioFit) {
   const [primary, secondary] = studioGarmentAssets(angle, garmentView, design.outfit);
   if (!primary) return null;
   if (angle === 'front' && garmentView === 'jacket') {
-    const garment = composeTryOnJacket(design, Boolean(secondary), Boolean(secondary), !studioFit);
-    return garment && !secondary ? shapeClosedStudioJacket(garment, design.closure) : garment;
+    return closedStudioJacket(design);
   }
   const garment = tryOnLayer('studio-angle-garment');
   if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true, shapeJacket: !studioFit})) return null;
@@ -194,7 +215,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   const portraits = capture?.rear ? studioRearPortraits : studioPortraits;
   if (!capture || (face?.crop && !portraits)) return false;
   const needsJacket = garmentView === 'jacket';
-  const studioFit = needsJacket && design.outfit === 1;
+  const studioFit = needsJacket;
   const key = JSON.stringify(['studio-model', design, clothAppearance(design), angle, garmentView, faceId]);
   if (renderedCanvases.get(canvas) === key) return true;
   const garment = paintStudioGarment(design, angle, garmentView, studioFit);
@@ -242,7 +263,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2, studioFit, angle);
+    putJacket(ctx, garment, display, body, design, !needsJacket, false, studioFit, angle);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }
