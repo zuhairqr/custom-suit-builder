@@ -304,3 +304,34 @@ test('three-piece jacket stays closed and uses the same balanced cut as the two-
   assert.ok(proportions.waist / proportions.chest >= .87, 'Waist must not be pinched');
   assert.ok(proportions.skirt / proportions.chest <= 1.12, 'Jacket skirt must not flare out from the chest');
 });
+
+test('jacket collar covers the photographed shirt shoulders for every suit and collar', async t => {
+  const page = await studio(t);
+  for (const outfit of ['0', '1', '2']) {
+    await page.locator('#outfit').selectOption(outfit);
+    for (const collar of ['0', '1', '2']) {
+      await page.locator('[data-piece="shirt"]').click();
+      await page.locator('#style-jump').selectOption('shirtCollar');
+      await page.locator(`[data-style="shirtCollar"][data-choice="${collar}"]`).click();
+      await page.locator('[data-piece="jacket"]').click();
+      await page.locator('#fabric-model').waitFor({state: 'visible'});
+      const pixels = await page.evaluate(() => {
+        const canvas = get('fabric-model');
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let whiteShoulder = 0;
+        // Photo-space patches outside the collar, where exposed shirt formed
+        // the two white wings reported by the user. Allow the collar's fine edge.
+        for (const [left, right] of [[350, 380], [506, 536]]) {
+          for (let sy = 275; sy < 315; sy++) for (let sx = left; sx < right; sx++) {
+            const i = (Math.round(sy * canvas.height / 1774) * canvas.width + Math.round(sx * canvas.width / 887)) * 4;
+            const min = Math.min(data[i], data[i + 1], data[i + 2]);
+            const max = Math.max(data[i], data[i + 1], data[i + 2]);
+            if (min > 175 && max - min < 40 && data[i + 3] > 200) whiteShoulder++;
+          }
+        }
+        return whiteShoulder;
+      });
+      assert.ok(pixels < 50, `${outfit}/${collar}: collar must cover shirt wings (saw ${pixels} white pixels)`);
+    }
+  }
+});
