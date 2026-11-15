@@ -163,6 +163,9 @@ function orderItem(item, unit) {
     fabricCode: fabric.code,
     fabricMaterial: fabric.material,
     price: configurationPrice(item),
+    shirtStyling: Object.fromEntries(Object.entries(styleGroups)
+      .filter(([key]) => stylePiece(key) === 'shirt')
+      .map(([key, [label, options]]) => [label, options[key === 'shirtTie' && item.shirtCollar === 2 ? 2 : item[key]]])),
     pieces: outfits[item.outfit].pieces.map((piece) => {
       const entry = item.passport[piece];
       return {
@@ -185,6 +188,7 @@ function orderSpecification(items, total, bodyFit) {
     <article class="order-item">
       <div class="receipt-row"><h3>${items.length > 1 ? `Item ${index + 1} · ` : ''}${item.outfit}</h3><strong>${money(item.price)}</strong></div>
       <div class="order-fabric"><span>Fabric</span><strong>${item.fabric}</strong><small>${item.fabricCode} · ${item.fabricMaterial}</small></div>
+      ${item.shirtStyling ? `<details class="order-piece"><summary><strong>Shirt styling</strong><span>Preview accessory</span></summary>${rows(Object.entries(item.shirtStyling))}</details>` : ''}
       ${item.pieces.map((piece) => `
         <details class="order-piece" open>
           <summary><strong>${piece.garment}</strong><span>${orderEscape(piece.size || 'Made to measure')}</span></summary>

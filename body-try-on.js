@@ -208,7 +208,7 @@ function jacketPanelRows(rows, design, spread) {
   });
 }
 
-function putSleeve(ctx, jacket, display, side, elbow, wrist, span, armhole, sourceRows, studioFit) {
+function putSleeve(ctx, jacket, display, side, elbow, wrist, span, armhole, sourceRows, studioFit, minimalCuff = false) {
   const left = side === 0;
   const original = garmentRows(sourceRows, left);
   const capCenter = pointBetween(...armhole, .5);
@@ -220,8 +220,8 @@ function putSleeve(ctx, jacket, display, side, elbow, wrist, span, armhole, sour
   const fitted = [armhole,
     fittedRow(display, sleeveElbow, arm, span * (studioFit ? .15 : .16), .95, studioFit ? 1.09 : 1.17),
     fittedRow(display, pointBetween(sleeveElbow, wrist, .52), forearm, span * .135, .95, studioFit ? 1.14 : 1.24),
-    fittedRow(display, pointBetween(elbow, wrist, studioFit ? .985 : .96), forearm,
-      span * .109, .95, studioFit ? 1.13 : 1.28)];
+    fittedRow(display, pointBetween(elbow, wrist, (studioFit ? .985 : .96) + (minimalCuff ? .055 : 0)), forearm,
+      span * (minimalCuff ? .117 : .109), .95, studioFit ? 1.13 : 1.28)];
   const inside = left ? 1 : 0;
   const inward = left ? 1 : -1;
   fitted[2][inside][0] += inward * span * .018;
@@ -297,8 +297,8 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
     shoulderRow,
   ]);
   if (!vestOnly) {
-    putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows, studioFit);
-    putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows, studioFit);
+    putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows, studioFit, studioModel && design.shirtCuff === 1);
+    putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows, studioFit, studioModel && design.shirtCuff === 1);
   }
 
   const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], sourceDesign, spread)]

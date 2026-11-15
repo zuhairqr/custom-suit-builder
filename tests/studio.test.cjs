@@ -211,3 +211,56 @@ test('studio jackets cover the seat across outfits and angles', async t => {
     }
   }
 });
+
+test('shirt styling changes cloth without recoloring skin or trousers and survives bag editing', async t => {
+  const page = await studio(t);
+  await page.locator('[data-piece="shirt"]').click();
+  await page.locator('#fabric-model').waitFor({state: 'visible'});
+  const samples = () => page.evaluate(() => {
+    const canvas = get('fabric-model'), ctx = canvas.getContext('2d');
+    const pixel = (x, y) => [...ctx.getImageData(Math.round(x * canvas.width), Math.round(y * canvas.height), 1, 1).data];
+    return {shirt: pixel(.42, .3), skin: pixel(.5, .045), trousers: pixel(.44, .65), belowTie: pixel(.5, .45)};
+  });
+  const before = await samples();
+  await page.locator('[data-style="shirtColor"][data-choice="1"]').click();
+  const blue = await samples();
+  assert.notDeepEqual(blue.shirt, before.shirt);
+  assert.deepEqual(blue.skin, before.skin);
+  assert.deepEqual(blue.trousers, before.trousers);
+  await page.locator('#style-jump').selectOption('shirtTie');
+  await page.locator('[data-style="shirtTie"][data-choice="1"]').click();
+  assert.deepEqual((await samples()).belowTie, blue.belowTie, 'Burgundy tie does not recolor the trousers below its tip');
+  await page.locator('#style-jump').selectOption('shirtCollar');
+  await page.locator('[data-style="shirtCollar"][data-choice="2"]').click();
+  await page.locator('#style-jump').selectOption('shirtTie');
+  assert.equal(await page.locator('[data-style="shirtTie"][data-choice="0"]').isDisabled(), true);
+  assert.equal(await page.locator('[data-style="shirtTie"][data-choice="2"]').getAttribute('aria-pressed'), 'true');
+  await page.reload();
+  await page.locator('[data-piece="shirt"]').click();
+  assert.equal(await page.locator('[data-style="shirtColor"][data-choice="1"]').getAttribute('aria-pressed'), 'true');
+  assert.match(await page.locator('#choice-shirtTie').textContent(), /No tie/);
+  await page.locator('#add').click();
+  await page.locator('[data-edit="0"]').click();
+  await page.locator('[data-piece="shirt"]').click();
+  assert.equal(await page.locator('[data-style="shirtCollar"][data-choice="2"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#price').textContent(), '$400');
+  assert.deepEqual(await page.evaluate(() => orderItem(bag[0], fitUnit).shirtStyling), {
+    'Shirt color': 'Sky blue', 'Shirt collar': 'Band collar', 'Shirt cuffs': 'Standard reveal', Tie: 'No tie',
+  });
+});
+
+test('shirt cuff control extends jacket sleeves and switching model exits shirt controls', async t => {
+  const page = await studio(t);
+  await page.locator('[data-piece="shirt"]').click();
+  await page.locator('#shirt-preview-toggle').click();
+  const standard = await page.locator('#fabric-model').evaluate(canvas => canvas.toDataURL());
+  await page.locator('#style-jump').selectOption('shirtCuff');
+  await page.locator('[data-style="shirtCuff"][data-choice="1"]').click();
+  assert.notEqual(await page.locator('#fabric-model').evaluate(canvas => canvas.toDataURL()), standard);
+  assert.equal(await page.locator('#shirt-preview-toggle').getAttribute('aria-pressed'), 'true');
+  await page.locator('#preview-model').selectOption('mannequin');
+  assert.equal(await page.locator('[data-piece="shirt"]').isVisible(), false);
+  assert.equal(await page.locator('#tailoring-title').textContent(), 'Jacket details');
+  await page.locator('#preview-model').selectOption('studio');
+  assert.equal(await page.locator('[data-piece="shirt"]').isVisible(), true);
+});

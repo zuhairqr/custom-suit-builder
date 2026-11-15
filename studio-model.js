@@ -206,6 +206,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   canvas.height = height;
   const output = canvas.getContext('2d');
   const trousers = paintStudioModelTrousers(output, display, design, capture);
+  output.drawImage(studioShirtOverlay(display, capture, design), 0, 0);
   if (face?.crop) paintStudioFace(output, width, height, face, capture.rear);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the

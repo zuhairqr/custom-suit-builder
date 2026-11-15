@@ -471,6 +471,19 @@ function optionIcon(key, index) {
   const jacket = '<path d="M15 10 24 6h16l9 4 7 30-8 2-5-20 1 23H20l1-23-5 20-8-2z"/>';
   let body;
   switch (key) {
+    case 'shirtColor':
+      body = `<path d="M18 10 26 6h12l8 4 10 17-9 5-5-9v22H22V23l-5 9-9-5z" fill="${['#f2f4f8', '#aecde5', '#f4e8d3', '#e9cacc', '#354660'][index]}"/><path d="m26 6 6 11 6-11M32 17v28"/>`;
+      break;
+    case 'shirtCollar':
+      body = index === 2 ? '<path d="M15 17q17 13 34 0v13q-17 13-34 0z"/>'
+        : `<path d="m12 16 13-7 7 10 7-10 13 7-${index ? 13 : 6} 20-13-12-${index ? 13 : 20} 12z"/>`;
+      break;
+    case 'shirtCuff':
+      body = `<path d="M20 6h24l-2 29H22z"/><path d="M22 35h20v${index ? 3 : 9}H22z" fill="#cbd8e5"/>`;
+      break;
+    case 'shirtTie':
+      body = '<path d="m25 8 7 5 7-5-3 12h-8zM28 20h8l6 21-10 6-10-6z"/>' + (index === 2 ? '<path d="m13 9 38 34" stroke="#b44c50" stroke-width="3"/>' : '');
+      break;
     case 'lapel': {
       let lapelPath = lapels[index];
       let leftPath, rightPath;

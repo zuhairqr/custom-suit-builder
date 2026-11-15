@@ -47,6 +47,7 @@ let angle = 'front';
 let piece = 'jacket';
 let jacketHidden = false;
 let waistcoatHidden = false;
+let shirtWithJacket = false;
 let modelPreference = saved.modelPreference === 'mannequin' ? 'mannequin' : 'studio';
 let studioFaceId = studioFaces.some(({id}) => id === saved.studioFaceId) ? saved.studioFaceId : 'original';
 let skinTone = Number.isInteger(saved.skinTone) && mannequinTones[saved.skinTone] ? saved.skinTone : 0;
@@ -149,13 +150,13 @@ function mountStyles() {
 
 function syncPieceControls() {
   const outfit = outfits[design.outfit];
-  if (!outfit.pieces.includes(piece)) piece = 'jacket';
+  if (!outfit.pieces.includes(piece) && !(piece === 'shirt' && showsStudioModel())) piece = 'jacket';
   get('outfit').value = design.outfit;
   for (const button of get('piece-tabs').querySelectorAll('[data-piece]')) {
-    button.hidden = !outfit.pieces.includes(button.dataset.piece);
+    button.hidden = button.dataset.piece === 'shirt' ? !showsStudioModel() : !outfit.pieces.includes(button.dataset.piece);
     button.setAttribute('aria-pressed', button.dataset.piece === piece);
   }
-  get('tailoring-title').textContent = {jacket: 'Jacket details', trousers: 'Trouser details', waistcoat: 'Waistcoat details'}[piece];
+  get('tailoring-title').textContent = {jacket: 'Jacket details', trousers: 'Trouser details', waistcoat: 'Waistcoat details', shirt: 'Shirt styling'}[piece];
   get('open-necklines').hidden = piece !== 'jacket';
   const active = Object.entries(styleGroups).filter(([key]) => stylePiece(key) === piece);
   const groupIds = new Set(active.map(([key]) => 'group-' + key));
@@ -164,7 +165,8 @@ function syncPieceControls() {
   get('style-jump').innerHTML = '<option value="">Jump to a detail</option>' + active.map(([key, [label]]) => `<option value="${key}">${label}</option>`).join('');
   get('style-groups').scrollTop = 0;
   get('tailoring-title').closest('.tailoring').scrollTop = 0;
-  get('preview-angles').hidden = design.outfit !== 2 && piece !== 'jacket';
+  get('preview-angles').hidden = design.outfit !== 2 && !['jacket', 'shirt'].includes(piece);
+  get('preview-angles').querySelector('[data-view="inside"]').hidden = piece === 'shirt';
   get('compare').hidden = design.outfit > 0 || piece !== 'jacket';
 }
 
@@ -195,6 +197,7 @@ function showsStudioModel() {
 }
 
 function studioModelView() {
+  if (piece === 'shirt') return shirtWithJacket ? 'jacket' : 'shirt';
   if (design.outfit !== 2 || !jacketHidden) return 'jacket';
   return waistcoatHidden ? 'shirt' : 'waistcoat';
 }
@@ -222,6 +225,11 @@ function ensurePhoto(view) {
 }
 
 function renderPreview() {
+  if (piece === 'shirt' && !showsStudioModel()) {
+    piece = 'jacket';
+    syncPieceControls();
+  }
+  get('piece-tabs').querySelector('[data-piece="shirt"]').hidden = !showsStudioModel();
   const model = get('fabric-model');
   const personal = showsBodyPhoto();
   const studio = showsStudioModel();
@@ -286,10 +294,13 @@ function renderPreview() {
     get('look-detail-choice').textContent = options[design[lookDetail]];
     get('close-look-detail').textContent = full ? 'Full Body' : 'Full view';
   }
-  get('toggle-jacket').hidden = design.outfit !== 2;
+  get('toggle-jacket').hidden = design.outfit !== 2 || piece === 'shirt';
   get('toggle-jacket').textContent = hideJacket ? 'Show jacket' : 'Hide jacket';
-  get('toggle-waistcoat').hidden = !(studio && hideJacket);
+  get('toggle-waistcoat').hidden = !(studio && hideJacket) || piece === 'shirt';
   get('toggle-waistcoat').textContent = waistcoatHidden ? 'Show waistcoat' : 'Hide waistcoat';
+  get('shirt-preview-toggle').hidden = piece !== 'shirt';
+  get('shirt-preview-toggle').textContent = shirtWithJacket ? 'Shirt only' : 'Show jacket';
+  get('shirt-preview-toggle').setAttribute('aria-pressed', shirtWithJacket);
   get('preview-model-control').hidden = personal || Boolean(faceState.image);
   get('skin-tone-control').hidden = personal || studio;
   get('open-body').textContent = tryOnSession.capture ? 'Manage try-on photo' : 'Full-body try-on';
@@ -309,6 +320,13 @@ function renderPreview() {
 }
 
 function focusConstruction(key) {
+  if (stylePiece(key) === 'shirt') {
+    if (key === 'shirtCuff') shirtWithJacket = true;
+    lookDetail = '';
+    angle = 'front';
+    zoomed = true;
+    return;
+  }
   lookDetail = key;
   zoomed = false;
   const view = constructionDetails[key]?.[0];
@@ -331,9 +349,12 @@ function renderDesign() {
   if (get('monogram-text').value !== design.monogramText) get('monogram-text').value = design.monogramText;
   if (design.breast === 2) get('choice-square').textContent = 'Requires a breast pocket';
   for (const button of document.querySelectorAll('[data-style]')) {
-    button.setAttribute('aria-pressed', design[button.dataset.style] === Number(button.dataset.choice));
-    button.disabled = button.dataset.style === 'square' && design.breast === 2;
+    const selected = button.dataset.style === 'shirtTie' && design.shirtCollar === 2 ? 2 : design[button.dataset.style];
+    button.setAttribute('aria-pressed', selected === Number(button.dataset.choice));
+    button.disabled = (button.dataset.style === 'square' && design.breast === 2) ||
+      (button.dataset.style === 'shirtTie' && design.shirtCollar === 2 && Number(button.dataset.choice) !== 2);
   }
+  if (design.shirtCollar === 2) get('choice-shirtTie').textContent = 'No tie with band collar';
   renderPreview();
   get('design-summary').textContent = `${outfits[design.outfit].name} · ${description(design)}`;
   get('price').textContent = money(configurationPrice(design));
@@ -446,9 +467,13 @@ get('piece-tabs').addEventListener('click', (event) => {
   const button = event.target.closest('[data-piece]');
   if (!button) return;
   piece = button.dataset.piece;
+  if (piece === 'shirt') {
+    shirtWithJacket = false;
+    angle = 'front';
+  }
   lookDetail = '';
   if (design.outfit === 2 && piece !== 'jacket') angle = 'front';
-  zoomed = false;
+  zoomed = piece === 'shirt';
   zoomFocus = 53;
   syncPieceControls();
   renderPreview();
@@ -536,6 +561,11 @@ get('toggle-jacket').addEventListener('click', () => {
 get('toggle-waistcoat').addEventListener('click', () => {
   waistcoatHidden = !waistcoatHidden;
   lookDetail = '';
+  renderPreview();
+});
+
+get('shirt-preview-toggle').addEventListener('click', () => {
+  shirtWithJacket = !shirtWithJacket;
   renderPreview();
 });
 

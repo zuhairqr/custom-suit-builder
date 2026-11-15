@@ -188,6 +188,10 @@ const liningCollection = [
 const activeLinings = liningCollection.filter(([, color]) => color);
 
 const styleGroups = {
+  shirtColor: ['Shirt color', ['White', 'Sky blue', 'Ivory', 'Blush', 'Midnight']],
+  shirtCollar: ['Shirt collar', ['Classic point', 'Spread collar', 'Band collar']],
+  shirtCuff: ['Shirt cuffs', ['Standard reveal', 'Minimal reveal']],
+  shirtTie: ['Tie', ['Navy', 'Burgundy', 'No tie']],
   silhouette: ['Silhouette', ['Tailored', 'Relaxed', 'Slim']],
   lapel: ['Lapel style', [
     // Classic suit & tuxedo lapels (0-23)
@@ -269,12 +273,14 @@ const outfits = [
 const pieces = {jacket: 'Jacket', trousers: 'Trousers', waistcoat: 'Waistcoat (inner)'};
 
 function stylePiece(key) {
+  if (key.startsWith('shirt')) return 'shirt';
   if (key.startsWith('trouser')) return 'trousers';
   if (key.startsWith('vest')) return 'waistcoat';
   return 'jacket';
 }
 
 const defaults = {
+  shirtColor: 0, shirtCollar: 0, shirtCuff: 0, shirtTie: 0,
   outfit: 0, fabric: 0, silhouette: 0, lapel: 2, lapelFinish: 0, closure: 4, button: 0,
   breast: 0, pocket: 0, cuff: 0, stitching: 0, square: 0, vent: 0, lining: 0, inner: 0,
   ticket: 0, cuffFinish: 0, collarFelt: 0, shoulder: 0, canvasType: 0, liningCoverage: 0,

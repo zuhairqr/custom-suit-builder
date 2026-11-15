@@ -4,6 +4,15 @@ A static HTML, CSS and JavaScript suit studio. Choose fabrics and construction,
 preview jacket, two-piece and three-piece looks, save configurations in a bag,
 complete a Size Passport, and download a demo order as JSON.
 
+The **Shirt** tab styles the studio model's shirt: five colors, classic/spread/band
+collars, standard/minimal cuff reveal and navy/burgundy/no tie. Use **Show jacket**
+to compare the shirt with the suit. Choosing cuff reveal shows the jacket
+automatically; band collars always display without a tie. These choices persist
+with each bag item and appear in review/download as preview accessories. They do
+not add a shirt to the suit price or require additional tailoring measurements.
+Shirt styling is available on the studio model, including the rear view; it does
+not alter a personal try-on photo or the mannequin.
+
 ## Run locally
 
 Serve this directory with a static HTTP server. For example, with Python 3:
@@ -58,6 +67,7 @@ directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
 - `catalog.js`: fabrics, construction options and defaults.
 - `size-passport.js`: measurement validation, conversion and order specifications.
 - `studio-model.js`, `full-suit.js`, `fabric-renderer.js`: preview composition.
+- `studio-shirt.js`: studio shirt colors, collars and tie rendering.
 - `body-*.js`, `face-camera.js`, `studio-render.js`: optional personal try-on flows.
 
 Automated browser checks cover local desktop and a 390px mobile viewport.
