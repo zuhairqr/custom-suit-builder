@@ -620,6 +620,9 @@ get('cart-lines').addEventListener('click', (event) => {
     piece = 'jacket';
     angle = 'front';
     split = false;
+    jacketHidden = false;
+    waistcoatHidden = false;
+    zoomed = false;
     zoomFocus = 53;
     resetFabricSearch();
     syncPieceControls();
@@ -634,6 +637,13 @@ get('passport-items').addEventListener('input', (event) => {
   save();
 });
 
+get('body-options').addEventListener('change', (event) => {
+  const {name, value} = event.target;
+  if (!fitGroups[name]?.[1].includes(value)) return;
+  fit[name] = value;
+  save();
+});
+
 get('passport-unit').addEventListener('change', (event) => {
   const invalid = [...get('passport-items').querySelectorAll('[data-measurement]')].find((input) =>
     input.validity.badInput || (input.value !== '' && !input.validity.valid));
@@ -642,6 +652,7 @@ get('passport-unit').addEventListener('change', (event) => {
     invalid.reportValidity();
     return;
   }
+  syncPassportInputs(get('passport-items'), bag, fitUnit);
   fitUnit = event.target.value;
   mountSizePassport(get('passport-items'), bag, fitUnit);
   save();
@@ -650,15 +661,7 @@ get('passport-unit').addEventListener('change', (event) => {
 get('fit-form').addEventListener('submit', (event) => {
   event.preventDefault();
   fit = Object.fromEntries(new FormData(event.currentTarget));
-  // Read any browser-filled values that did not dispatch an input event.
-  for (const input of get('passport-items').querySelectorAll('[data-measurement], [data-size-label]')) {
-    const {passportItem, passportPiece} = input.closest('[data-passport-piece]').dataset;
-    const entry = bag[Number(passportItem)].passport[passportPiece];
-    const key = input.dataset.measurement;
-    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], fitUnit)) {
-      storePassportInput(bag, input, fitUnit);
-    }
-  }
+  syncPassportInputs(get('passport-items'), bag, fitUnit);
   save();
   if (sizePassportReady()) navigate('checkout');
 });

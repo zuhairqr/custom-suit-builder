@@ -109,6 +109,19 @@ function storePassportInput(items, input, unit) {
   else delete entry.measurements[key];
 }
 
+function syncPassportInputs(container, items, unit) {
+  // Autofill need not emit input. Keep canonical centimetres when the displayed
+  // rounded value has not changed, so toggling units never rounds the source.
+  for (const input of container.querySelectorAll('[data-measurement], [data-size-label]')) {
+    const {passportItem, passportPiece} = input.closest('[data-passport-piece]').dataset;
+    const entry = items[Number(passportItem)].passport[passportPiece];
+    const key = input.dataset.measurement;
+    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], unit)) {
+      storePassportInput(items, input, unit);
+    }
+  }
+}
+
 function orderFabric(index) {
   const {name, code, material} = fabrics[index];
   return {name, code, material};
