@@ -145,9 +145,9 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   const shape = new Path2D(path);
   const clothPhoto = !finish && photoCloth(fabric);
   ctx.save();
-  ctx.shadowColor = clothPhoto ? '#090d1578' : '#090d15a6';
-  ctx.shadowBlur = clothPhoto ? 4 : 6;
-  ctx.shadowOffsetY = clothPhoto ? 2 : 3;
+  ctx.shadowColor = '#090d1548';
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetY = 1.5;
   if (bounds.matchBody) {
     // Pocket cut from matching cloth. Let the jacket's existing grid run
     // through the pocket and show the cut with the edge and its shadow.
@@ -155,7 +155,7 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   } else if (finish) {
     ctx.fillStyle = finish;
   } else {
-    const tile = clothTile(fabric).tile;
+    const tile = garmentCloth(fabric).tile;
     const pattern = ctx.createPattern(tile, 'repeat');
     const aspectRatio = w / Math.max(1, h);
     const scaleAdjustment = weaveHasLines(fabric) ? 1 / .82 : aspectRatio < 0.6 ? 1.2 : 1.46;
@@ -166,13 +166,28 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   ctx.restore();
 
   const sheen = ctx.createLinearGradient(x, y, x + w, y + h * 0.33);
-  sheen.addColorStop(0, clothPhoto ? '#03070c35' : '#03070c60');
-  sheen.addColorStop(0.34, finish ? '#ffffff40' : '#ffffff17');
-  sheen.addColorStop(0.67, '#ffffff08');
-  sheen.addColorStop(1, clothPhoto ? '#05090f54' : '#05090f85');
+  const photographedLight = ctx.clothLighting && !finish;
+  sheen.addColorStop(0, photographedLight ? '#03070c18' : clothPhoto ? '#03070c35' : '#03070c60');
+  sheen.addColorStop(0.34, finish ? '#ffffff40' : photographedLight ? '#ffffff08' : '#ffffff17');
+  sheen.addColorStop(0.67, photographedLight ? '#ffffff03' : '#ffffff08');
+  sheen.addColorStop(1, photographedLight ? '#05090f28' : clothPhoto ? '#05090f54' : '#05090f85');
   ctx.fillStyle = sheen;
   ctx.fill(shape);
-  ink(ctx, shape, clothPhoto ? '#0a0d125b' : '#0a0d126e', 1.8);
+  if (ctx.clothLighting) {
+    ctx.save();
+    ctx.clip(shape);
+    // Clip in garment coordinates, then sample lighting in image coordinates;
+    // mirrored lapels and rotated pockets inherit the folds underneath them.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = .65;
+    ctx.drawImage(ctx.clothLighting.shadows, 0, 0);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 1;
+    ctx.drawImage(ctx.clothLighting.highlights, 0, 0);
+    ctx.restore();
+  }
+  ink(ctx, shape, '#0a0d123b', .9);
 }
 
 function weaveHasLines(fabric) {
@@ -254,7 +269,7 @@ function paintAMF(ctx, path, stitching, x, y, span) {
   ctx.translate(x, y);
   ctx.scale(1 - 2 * inset / span, 1 - 2 * inset / span);
   ctx.translate(-x, -y);
-  ink(ctx, path, stitching === 2 ? '#f6e7c6bb' : '#f4ede375', 2, [3, 4]);
+  ink(ctx, path, stitching === 2 ? '#f6e7c6bb' : stitching === 0 ? '#f4ede32b' : '#f4ede35b', stitching === 2 ? 2 : 1.2, [3, 4]);
   ctx.restore();
 }
 

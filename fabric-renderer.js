@@ -3,6 +3,73 @@
 const clothTiles = new Map();
 const clothSamples = new Map();
 const tileSize = 144;
+const garmentTiles = new Map();
+
+// A macro swatch and cloth seen on a person have different detail contrast.
+// Keep the catalogue's full-resolution swatches, but use the same quieter
+// material for the jacket, its construction and the photographed trousers.
+function garmentCloth(index) {
+  const source = clothTile(index);
+  const cached = garmentTiles.get(index);
+  if (cached?.source === source) return cached;
+  const fabric = fabrics[index];
+  const patterned = /^(window|plaid|prince|gunclub|houndstooth|stripe|pinstripe|seersucker)$/.test(fabric.weave);
+  const rough = /tweed|linen|corduroy|flannel/i.test(fabric.material);
+  const contrast = patterned ? .62 : photoCloth(index) ? .52 : rough ? .29 : .15;
+  const tile = makeCanvas(tileSize, tileSize), ctx = tile.getContext('2d');
+  const frame = ctx.createImageData(tileSize, tileSize);
+  for (let i = 0; i < frame.data.length; i += 4) {
+    for (let channel = 0; channel < 3; channel++) {
+      frame.data[i + channel] = source.average[channel] + (source.pixels[i + channel] - source.average[channel]) * contrast;
+    }
+    frame.data[i + 3] = 255;
+  }
+  ctx.putImageData(frame, 0, 0);
+  const material = {source, tile, pixels: frame.data, average: source.average};
+  garmentTiles.set(index, material);
+  if (garmentTiles.size > 42) garmentTiles.delete(garmentTiles.keys().next().value);
+  return material;
+}
+
+// Apply exposure in linear light instead of multiplying display RGB values.
+// The lookup keeps highlights smooth without repeating gamma work per pixel.
+const clothExposure = new Uint8ClampedArray(257 * 256);
+for (let exposure = 0; exposure <= 256; exposure++) {
+  const gain = (exposure / 128) ** 1.65;
+  for (let value = 0; value < 256; value++) {
+    const display = value / 255;
+    const linear = display <= .04045 ? display / 12.92 : ((display + .055) / 1.055) ** 2.4;
+    const lit = linear * gain;
+    clothExposure[exposure * 256 + value] = 255 * (lit <= .0031308 ? 12.92 * lit : 1.055 * lit ** (1 / 2.4) - .055);
+  }
+}
+
+function exposeCloth(value, light) {
+  return clothExposure[Math.round(clamp(light, 0, 2) * 128) * 256 + Math.round(clamp(value, 0, 255))];
+}
+
+function constructionLighting(photo) {
+  if (photo.constructionLighting) return photo.constructionLighting;
+  const source = makeCanvas(photo.width, photo.height), ctx = source.getContext('2d');
+  const frame = ctx.createImageData(photo.width, photo.height);
+  const highlightSource = makeCanvas(photo.width, photo.height), highlightCtx = highlightSource.getContext('2d');
+  const highlights = highlightCtx.createImageData(photo.width, photo.height);
+  for (let px = 0; px < photo.mask.length; px++) {
+    const value = photo.mask[px] ? 255 * Math.min(1, Math.max(.18, photo.shade[px])) ** .75 : 255;
+    const i = px * 4;
+    frame.data[i] = frame.data[i + 1] = frame.data[i + 2] = value;
+    frame.data[i + 3] = 255;
+    highlights.data[i] = highlights.data[i + 1] = highlights.data[i + 2] = 255;
+    highlights.data[i + 3] = photo.mask[px] ? 255 * Math.min(.05, Math.max(0, photo.shade[px] - 1) * .06) : 0;
+  }
+  ctx.putImageData(frame, 0, 0);
+  highlightCtx.putImageData(highlights, 0, 0);
+  const lighting = makeCanvas(photo.width, photo.height), output = lighting.getContext('2d');
+  output.fillStyle = '#fff'; output.fillRect(0, 0, lighting.width, lighting.height);
+  output.filter = 'blur(3px)'; output.drawImage(source, 0, 0);
+  photo.constructionLighting = {shadows: lighting, highlights: highlightSource};
+  return photo.constructionLighting;
+}
 
 function clothAverage(pixels) {
   const sum = [0, 0, 0];
@@ -282,10 +349,8 @@ function paintMaterials(photo, design, angle, split, skinTone = 0) {
   const ctx = materialCanvas.getContext('2d');
   const frame = ctx.createImageData(width, height);
   frame.data.set(base);
-  const selected = clothTile(fabricIndex);
-  const comparison = split ? clothTile(1) : selected;
-  const patterned = /^(window|plaid|prince|gunclub|houndstooth|stripe|pinstripe|seersucker)$/;
-  const selectedTexture = patterned.test(fabrics[fabricIndex].weave) ? .77 : sample ? .78 : .57;
+  const selected = garmentCloth(fabricIndex);
+  const comparison = split ? garmentCloth(1) : selected;
   const selectedMatte = /flannel|tweed|linen/i.test(fabrics[fabricIndex].material);
   const comparisonMatte = split ? false : selectedMatte;
   const lining = liningColors[design.lining] ? rgb(liningColors[design.lining]) : null;
@@ -309,7 +374,6 @@ function paintMaterials(photo, design, angle, split, skinTone = 0) {
     const solid = satin || (mask[px] < 0 && px < liningLimit && lining);
     const left = px % width < width / 2;
     const cloth = left ? comparison : selected;
-    const texture = left && split ? .57 : selectedTexture;
     const index = tileOffsets[px] * 4;
     const light = shade[px];
     const matte = !solid && (left ? comparisonMatte : selectedMatte);
@@ -318,8 +382,8 @@ function paintMaterials(photo, design, angle, split, skinTone = 0) {
     const drape = matte && fold > 1 ? 1 + (fold - 1) * .68 : fold;
     for (let channel = 0; channel < 3; channel++) {
       const color = solid ? solid[channel]
-        : cloth.average[channel] + (cloth.pixels[index + channel] - cloth.average[channel]) * texture;
-      const shaded = color * drape;
+        : cloth.pixels[index + channel];
+      const shaded = solid ? color * drape : exposeCloth(color, drape);
       frame.data[i + channel] = base[i + channel] * (1 - opacity) + shaded * opacity;
     }
   }
@@ -413,6 +477,7 @@ function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, ope
   layer.setTransform(1, 0, 0, 1, 0, 0);
   layer.clearRect(0, 0, width, height);
   layer.drawImage(materialCanvas, 0, 0);
+  layer.clothLighting = constructionLighting(photo);
   if (fullBody && garment !== 'trousers') removePortraitTrousers(layer, photo, garment === 'waistcoat' ? 1228 : 1318);
   layer.scale(width / 1024, height / 1536);
   if (garment === 'jacket') {

@@ -113,6 +113,8 @@ select, input { width: 100%; background: #f8f8f6; color: #17222c; border: 1px so
 .model.zoomed canvas { transform: scale(1.65); transform-origin: center var(--zoom-focus, 53%); }
 .model.full-look.zoomed canvas { transform: scale(2.15); }
 .model.studio-look.zoomed canvas { transform: scale(1.65); transform-origin: center top; }
+.model-stage:has(.studio-look) { background: radial-gradient(ellipse at 48% 30%, #f4f4f0, #e2e5e3 78%, #d9dfde); }
+.model.studio-look canvas { filter: drop-shadow(1px 3px 6px #2732381a); }
 .visual:has(.studio-look) .zoom { font-size: 11px; padding: 6px 9px; }
 .detail-active .model { visibility: hidden; }
 .look-detail { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; margin: 0; overflow: hidden; }

@@ -105,6 +105,12 @@ const fabrics = featuredFabrics.concat(clothRecipes.flatMap(([pattern, fibre, fa
 
 const collectionLooks = [
   {
+    brand: 'FORM ATELIER · STUDIO ESSENTIALS', title: 'Studio Navy',
+    notes: 'Fine navy worsted wool, two-button closure, notch lapels and tonal buttons. A quiet studio look for inspecting drape and construction.',
+    image: 'assets/studio-navy-preview.jpg', media: 'Form Atelier photographic preview', fabric: 'FA-01-08',
+    cut: {outfit: 1, lapel: 0, closure: 1, button: 4, square: 1},
+  },
+  {
     brand: 'Suitsupply · Custom Made', title: 'Navy Herringbone Wool',
     notes: 'Fine herringbone with a two-button front and flap pockets in the studio look.',
     url: 'https://custommade.suitsupply.com/configurator',

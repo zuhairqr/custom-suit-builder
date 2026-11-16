@@ -335,3 +335,46 @@ test('jacket collar covers the photographed shirt shoulders for every suit and c
     }
   }
 });
+
+test('garment materials keep fabric colors and patterns without magnified wool noise', async t => {
+  const page = await studio(t);
+  const materials = await page.evaluate(() => {
+    const stats = pixels => {
+      let sum = 0, square = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const value = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+        sum += value; square += value * value;
+      }
+      const count = pixels.length / 4, mean = sum / count;
+      return {mean, variance: square / count - mean * mean};
+    };
+    return [fabrics.findIndex(fabric => fabric.name === 'Deep Navy Worsted Twill'), 0].map(index => ({
+      swatch: stats(clothTile(index).pixels), garment: stats(garmentCloth(index).pixels),
+    }));
+  });
+  for (const material of materials) assert.ok(Math.abs(material.swatch.mean - material.garment.mean) < 1, 'Cloth color must remain faithful to its swatch');
+  assert.ok(materials[0].garment.variance < materials[0].swatch.variance * .15, 'Fine worsted wool must not look pebbled at garment scale');
+  assert.ok(materials[1].garment.variance > materials[1].swatch.variance * .2, 'Windowpane checks must remain visible');
+  const exposure = await page.evaluate(() => [15, 45, 90, 170, 235].map(value => ({
+    value, shadow: exposeCloth(value, .5), neutral: exposeCloth(value, 1), highlight: exposeCloth(value, 1.5),
+  })));
+  for (const sample of exposure) {
+    assert.equal(sample.neutral, sample.value, 'Neutral lighting must preserve the selected color');
+    assert.ok(sample.shadow < sample.neutral && sample.highlight > sample.neutral, 'Photographic exposure must retain shadows and highlights');
+  }
+});
+
+test('Studio Navy look loads its local preview and applies a complete editable configuration', async t => {
+  const page = await studio(t);
+  await page.locator('#open-collections').click();
+  await page.locator('#collection-looks img[src="assets/studio-navy-preview.jpg"]').evaluate(image => image.decode());
+  assert.equal(await page.locator('#collection-looks a[href="undefined"]').count(), 0);
+  await page.getByRole('button', {name: 'Apply Studio Navy', exact: true}).click();
+  assert.equal(await page.locator('#source-dialog').isVisible(), false);
+  assert.equal(await page.locator('#outfit').inputValue(), '1');
+  assert.match(await page.locator('#fabric-detail').textContent(), /Deep Navy Worsted Twill/);
+  assert.equal(await page.locator('#price').textContent(), '$565');
+  await page.locator('#add').click();
+  assert.equal(await page.locator('.cart-line').count(), 1);
+  assert.match(await page.locator('.cart-line').textContent(), /Deep Navy Worsted Twill/);
+});

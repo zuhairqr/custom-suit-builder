@@ -91,9 +91,7 @@ function paintStudioModelTrousers(output, display, design, capture) {
   if (state.fitKey !== key) {
     const ctx = trouserOnly.getContext('2d');
     const frame = ctx.createImageData(cloth.width, cloth.height);
-    const {pixels, average} = clothTile(design.fabric);
-    const patterned = /window|plaid|check|prince|gunclub|stripe|houndstooth/.test(fabrics[design.fabric].weave);
-    const texture = patterned ? .88 : .72;
+    const {pixels} = garmentCloth(design.fabric);
     for (let i = 0; i < cloth.data.length; i += 4) {
       const alpha = cloth.data[i + 3];
       if (!alpha) continue;
@@ -103,7 +101,7 @@ function paintStudioModelTrousers(output, display, design, capture) {
       const sample = ((y % tileSize) * tileSize + x % tileSize) * 4;
       const light = clamp(Math.pow((cloth.data[i] + 2 * cloth.data[i + 1] + cloth.data[i + 2]) / 161, .68), .37, 1.33);
       for (let c = 0; c < 3; c++) {
-        frame.data[i + c] = (average[c] + (pixels[sample + c] - average[c]) * texture) * light;
+        frame.data[i + c] = exposeCloth(pixels[sample + c], light);
       }
       frame.data[i + 3] = alpha;
     }

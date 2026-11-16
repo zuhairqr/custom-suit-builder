@@ -740,7 +740,7 @@ function openCollections() {
           <p>${notes}</p>
           <div class="collection-actions">
             <button type="button" data-collection="${index}" aria-label="Apply ${title}">Apply look</button>
-            <a href="${url}" target="_blank" rel="noopener noreferrer">Brand reference ↗</a>
+            ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">Brand reference ↗</a>` : ''}
             ${guide ? `<a href="${guide[1]}" target="_blank" rel="noopener noreferrer">${guide[0]} ↗</a>` : ''}
           </div>
         </div>

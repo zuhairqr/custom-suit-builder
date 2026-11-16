@@ -13,6 +13,13 @@ not add a shirt to the suit price or require additional tailoring measurements.
 Shirt styling is available on the studio model, including the rear view; it does
 not alter a personal try-on photo or the mannequin.
 
+The cloth renderer separates catalogue swatches from on-garment material detail,
+uses a shared linear-light exposure response for jacket and studio trousers, and
+passes the source photograph's shadows/highlights through lapels and pockets.
+This remains a composited photographic preview with fixed poses, not a simulated
+3D cloth model. Matching new photographic garment assets would still be needed
+for a higher ceiling on natural drape and pose fidelity.
+
 ## Run locally
 
 Serve this directory with a static HTTP server. For example, with Python 3:
