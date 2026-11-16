@@ -443,3 +443,102 @@ test('spread collar retains the photographed tie knot below the neck opening', a
   assert.equal(comparison.difference, 0, 'Collar changes preserve knot position, shape and texture');
   assert.equal(comparison.redAboveNeck, 0, 'Burgundy knot cannot rise into the neck');
 });
+
+test('named looks persist, compare differences and restore designs without changing bag measurements', async t => {
+  const page = await studio(t);
+  await page.locator('#outfit').selectOption('2');
+  await addJacket(page);
+  await page.locator('[data-measurement="chest"]').first().fill('101');
+  await page.locator('a[href="#studio"]').first().click();
+  await page.locator('#open-saved-looks').click();
+  await page.locator('#look-name').fill('Wedding navy');
+  await page.locator('#save-look-form button').click();
+  assert.match(await page.locator('#saved-look-status').textContent(), /saved on this browser/);
+  await page.getByRole('button', {name: 'Close saved looks', exact: true}).click();
+  await page.locator('#outfit').selectOption('0');
+  await page.locator('#open-saved-looks').click();
+  assert.ok(await page.locator('.look-difference').count() > 0);
+  assert.match(await page.locator('#look-comparison').textContent(), /Not included/);
+  await page.reload();
+  assert.equal(await page.locator('#saved-look-count').textContent(), '1');
+  await page.locator('#open-saved-looks').click();
+  await page.locator('[data-use-look="0"]').click();
+  assert.equal(await page.locator('#outfit').inputValue(), '2');
+  assert.equal(await page.evaluate(() => bag[0].passport.jacket.measurements.chest), 101);
+  const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('form-atelier-looks-v1')));
+  assert.equal(persisted[0].design.passport, undefined);
+  assert.equal(Object.keys(persisted[0]).sort().join(','), 'design,name');
+  await page.locator('#open-saved-looks').click();
+  for (const name of ['Option two', 'Option three', 'Option four']) {
+    await page.locator('#look-name').fill(name);
+    await page.locator('#save-look-form button').click();
+  }
+  assert.equal(await page.locator('[data-use-look]').count(), 3);
+  assert.match(await page.locator('#saved-look-status').textContent(), /Remove one/);
+  await page.locator('[data-remove-look="0"]').click();
+  assert.equal(await page.locator('#saved-look-count').textContent(), '2');
+  await page.reload();
+  assert.equal(await page.locator('#saved-look-count').textContent(), '2');
+});
+
+test('notebook handles damaged data, unsafe labels and storage denial honestly', async t => {
+  const page = await studio(t);
+  await page.evaluate(() => localStorage.setItem('form-atelier-looks-v1', '[null,{"name":"<img src=x onerror=alert(1)>","design":{"outfit":99,"fabric":-1}}]'));
+  await page.reload();
+  await page.locator('#open-saved-looks').click();
+  assert.equal(await page.locator('.saved-look-copy img').count(), 0);
+  assert.match(await page.locator('.saved-look-copy').nth(1).textContent(), /<img/);
+  await page.locator('[data-use-look="0"]').click();
+  assert.equal(await page.locator('#outfit').inputValue(), '0');
+  await page.locator('#open-saved-looks').click();
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); }; });
+  await page.locator('#look-name').fill('Cannot persist');
+  await page.locator('#save-look-form button').click();
+  assert.match(await page.locator('#saved-look-status').textContent(), /could not save/);
+  assert.equal(await page.locator('#saved-look-count').textContent(), '1');
+});
+
+test('design review shows real price components, effective choices and links back to editing', async t => {
+  const page = await studio(t);
+  await page.locator('#open-studio-looks').click();
+  await page.getByRole('button', {name: 'Apply Studio Navy', exact: true}).click();
+  await page.locator('#open-design-details').click();
+  assert.match(await page.locator('.design-pricing').textContent(), /Base two-piece suit.*\$565.*Cloth upgrade.*Included.*Configuration total.*\$565/s);
+  assert.equal(await page.locator('[data-edit-design="trousers"]').count(), 1);
+  assert.equal(await page.locator('[data-edit-design="waistcoat"]').count(), 0);
+  assert.match(await page.locator('#design-details-content').textContent(), /not included in your suit order/);
+  await page.locator('[data-edit-design="trousers"]').click();
+  assert.equal(await page.locator('#design-details-dialog').isVisible(), false);
+  assert.equal(await page.locator('[data-piece="trousers"]').getAttribute('aria-pressed'), 'true');
+  await page.setViewportSize({width: 390, height: 844});
+  await page.locator('#open-design-details').click();
+  assert.ok(await page.locator('#design-details-dialog').evaluate(el => el.scrollWidth <= el.clientWidth));
+  await page.getByRole('button', {name: 'Close design details', exact: true}).click();
+  await page.locator('#open-saved-looks').click();
+  await page.locator('#look-name').fill('Mobile look');
+  await page.locator('#save-look-form button').click();
+  assert.ok(await page.locator('#saved-looks-dialog').evaluate(el => el.scrollWidth <= el.clientWidth));
+  const layout = await page.evaluate(() => {
+    const form = document.getElementById('save-look-form').getBoundingClientRect();
+    const card = document.querySelector('.saved-look-card').getBoundingClientRect();
+    return {formBottom: form.bottom, cardTop: card.top, cardWidth: card.width};
+  });
+  assert.ok(layout.cardTop >= layout.formBottom, 'The save form must sit above the comparison cards');
+  assert.ok(layout.cardWidth > 300, 'Mobile look cards must use the available panel width');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+});
+
+test('fabric season shortcuts stay in sync with facets and clearing filters', async t => {
+  const page = await studio(t);
+  await page.locator('[data-season="warm"]').click();
+  assert.equal(await page.locator('#fabric-season').inputValue(), 'warm');
+  assert.equal(await page.locator('[data-season="warm"]').getAttribute('aria-pressed'), 'true');
+  const warm = await page.locator('[data-fabric]').evaluateAll(buttons => buttons.map(button => Number(button.dataset.fabric)));
+  assert.ok(warm.length > 0);
+  assert.equal(await page.evaluate(indices => indices.every(index => fabricTraits(fabrics[index]).season === 'warm'), warm), true);
+  await page.locator('.fabric-filters summary').click();
+  await page.locator('#fabric-season').selectOption('cool');
+  assert.equal(await page.locator('[data-season="cool"]').getAttribute('aria-pressed'), 'true');
+  await page.locator('#clear-fabric-filters').click();
+  assert.equal(await page.locator('[data-season="all"]').getAttribute('aria-pressed'), 'true');
+});

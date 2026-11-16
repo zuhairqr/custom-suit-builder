@@ -4,6 +4,15 @@ A static HTML, CSS and JavaScript suit studio. Choose fabrics and construction,
 preview jacket, two-piece and three-piece looks, save configurations in a bag,
 complete a Size Passport, and download a demo order as JSON.
 
+Use **Save & compare** to keep up to three named looks in this browser, restore
+one, or compare its cloth, effective construction choices and total with the
+current design. Saved looks contain configurations only, without photos or
+measurements. **Design details** reviews the actual garment specifications and
+base/cloth price breakdown before adding to the bag, with links back to editing.
+The fabric panel has synchronized year-round, summer and winter shortcuts.
+See [the platform review](PLATFORM_REVIEW.md) for the reference comparison,
+delivered changes and remaining production gaps.
+
 The **Shirt** tab styles the studio model's shirt: five colors, classic/spread/band
 collars, standard/minimal cuff reveal and navy/burgundy/no tie. Use **Show jacket**
 to compare the shirt with the suit. Choosing cuff reveal shows the jacket
@@ -57,6 +66,9 @@ directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
   and model preferences are saved in this browser's local storage under
   `form-atelier-v1`. Clearing site data removes them. Storage-disabled browsers
   can still use the current tab, without persistence.
+- Named looks use `form-atelier-looks-v1` in the same browser's local storage.
+  They are separate from the active design and bag, and do not sync across
+  devices. Failed notebook writes report an error instead of claiming success.
 - Measurements are stored in centimetres; switching the display to inches does
   not repeatedly round the source values. Label sizes are optional; measurements
   and all three body-feature selections are required for review.

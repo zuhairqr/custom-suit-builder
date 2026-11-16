@@ -96,6 +96,7 @@ function fabricTraits(fabric) {
 
 function mountSwatches() {
   const [source, material, color, pattern, season, upgrade] = fabricFacets.map(({value}) => value);
+  for (const button of document.querySelectorAll('[data-season]')) button.setAttribute('aria-pressed', button.dataset.season === season);
   const activeCount = fabricFacets.filter(({value}) => value !== 'all').length;
   get('fabric-filter-count').textContent = activeCount ? `(${activeCount})` : '';
   const terms = get('fabric-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);

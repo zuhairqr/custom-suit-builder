@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
   <title>Form Atelier | Suit Studio</title>
   <link rel="stylesheet" href="studio.css?v=photographic-cloth">
-  <link rel="stylesheet" href="atelier.css?v=editorial-studio">
+  <link rel="stylesheet" href="atelier.css?v=design-workspace">
   <script src="neckline-catalog.js" defer></script>
   <script src="catalog.js?v=photographic-cloth" defer></script>
   <script src="fit-icons.js" defer></script>
@@ -40,7 +40,8 @@
   <!-- 3D rendering disabled -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
   <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
-  <script src="studio.js?v=editorial-studio" defer></script>
+  <script src="studio.js?v=design-workspace" defer></script>
+  <script src="studio-workspace.js?v=design-workspace" defer></script>
 </head>
 <body>
   <header class="top">
@@ -69,6 +70,10 @@
         </div>
         <button id="open-studio-looks" class="lookbook-trigger" type="button" aria-haspopup="dialog">Curated looks <span aria-hidden="true">↗</span></button>
       </div>
+      <div class="design-toolbar" aria-label="Design workspace">
+        <p><span class="workspace-dot" aria-hidden="true"></span> A considered design, one detail at a time.</p>
+        <div><button id="open-saved-looks" type="button" aria-haspopup="dialog">Save &amp; compare <span id="saved-look-count">0</span></button><button id="open-design-details" type="button" aria-haspopup="dialog">Design details <span aria-hidden="true">↗</span></button></div>
+      </div>
       <div class="frame">
         <div class="workbench" id="workbench" data-mobile-panel="cloth">
           <aside class="glass cloth" aria-labelledby="cloth-title">
@@ -76,6 +81,12 @@
             <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count" aria-live="polite"></span></div>
             <label class="sr-only" for="fabric-search">Search fabrics</label>
             <input id="fabric-search" type="search" placeholder="Color, weave, or code" autocomplete="off">
+            <div class="season-shortcuts" role="group" aria-label="Fabric season">
+              <button type="button" data-season="all" aria-pressed="true">All cloth</button>
+              <button type="button" data-season="all-season" aria-pressed="false">Year-round</button>
+              <button type="button" data-season="warm" aria-pressed="false">Summer</button>
+              <button type="button" data-season="cool" aria-pressed="false">Winter</button>
+            </div>
             <details class="fabric-filters">
               <summary>Filters <span id="fabric-filter-count"></span></summary>
               <div id="fabric-facets" class="fabric-facets">
@@ -332,6 +343,25 @@
     <h2 id="source-title">Collection looks</h2>
     <p class="collection-intro">Compare original references with editable Form Atelier looks. Applying a look replaces the current fabric and construction with a studio preset.</p>
     <div id="collection-looks" class="collection-looks"></div>
+  </dialog>
+  <dialog id="saved-looks-dialog" class="workspace-dialog" aria-labelledby="saved-looks-title">
+    <form method="dialog" class="dialog-close"><button class="quiet" aria-label="Close saved looks">✕</button></form>
+    <p class="eyebrow">YOUR DESIGN NOTEBOOK</p>
+    <h2 id="saved-looks-title">A few good options.</h2>
+    <p class="workspace-intro">Keep up to three looks and compare them with your current design. Saved on this browser; measurements stay with your bag items.</p>
+    <form id="save-look-form" class="save-look-form">
+      <label for="look-name">Name this look<input id="look-name" maxlength="40" required autocomplete="off" placeholder="e.g. The weekday navy"></label>
+      <button class="primary" type="submit">Save current look</button>
+    </form>
+    <p id="saved-look-status" class="workspace-status" role="status"></p>
+    <div id="saved-look-cards" class="saved-look-cards"></div>
+    <div id="look-comparison" class="look-comparison" tabindex="0" role="region" aria-label="Look comparison"></div>
+  </dialog>
+  <dialog id="design-details-dialog" class="workspace-dialog details-dialog" aria-labelledby="design-details-title">
+    <form method="dialog" class="dialog-close"><button class="quiet" aria-label="Close design details">✕</button></form>
+    <p class="eyebrow">THE DETAILS MAKE IT YOURS</p>
+    <h2 id="design-details-title">Your design, considered.</h2>
+    <div id="design-details-content"></div>
   </dialog>
   <div id="status" class="sr-only" role="status"></div>
 </body>
