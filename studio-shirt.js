@@ -93,6 +93,30 @@ function studioShirtOverlay(display, capture, design) {
 function paintStudioShirtCollar(ctx, canvas, design, source) {
   if (!design.shirtCollar) return; // Preserve the photographed classic collar.
   const photographed = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  if (design.shirtCollar === 2) {
+    // Blend neighboring photographed shirt into the old pointed folds. A flat
+    // fill here made a rectangular bib, particularly obvious on white shirts.
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const footprint = new Path2D('M365 268Q443 338 521 268L538 288V370H348V288Z');
+    for (let y = Math.floor(canvas.height * 268 / 1774); y < canvas.height * 370 / 1774; y++) {
+      const sy = y * 1774 / canvas.height;
+      const sampleY = Math.round((sy + 100) * canvas.height / 1774);
+      for (let x = Math.floor(canvas.width * 348 / 887); x < canvas.width * 538 / 887; x++) {
+        const sx = x * 887 / canvas.width;
+        if (!ctx.isPointInPath(footprint, sx, sy) || ctx.isPointInPath(studioNeckSkin, sx, sy)) continue;
+        const i = (y * canvas.width + x) * 4;
+        if (!source.data[i + 3]) continue;
+        const left = (sampleY * canvas.width + Math.round(370 * canvas.width / 887)) * 4;
+        const right = (sampleY * canvas.width + Math.round(516 * canvas.width / 887)) * 4;
+        const mix = Math.max(0, Math.min(1, (sx - 370) / 146));
+        const rgb = shirtTint(...[0, 1, 2].map(c => source.data[left + c] * (1 - mix) + source.data[right + c] * mix), design.shirtColor);
+        const feather = Math.max(0, Math.min(1, (370 - sy) / 28, (sx - 348) / 15, (538 - sx) / 15));
+        for (let c = 0; c < 3; c++) frame.data[i + c] = frame.data[i + c] * (1 - feather) + rgb[c] * feather;
+        frame.data[i + 3] = source.data[i + 3];
+      }
+    }
+    ctx.putImageData(frame, 0, 0);
+  }
   ctx.save();
   ctx.scale(canvas.width / 887, canvas.height / 1774);
   const color = studioShirtColors[design.shirtColor];
@@ -100,14 +124,13 @@ function paintStudioShirtCollar(ctx, canvas, design, source) {
   fill.addColorStop(0, color);
   fill.addColorStop(.55, color);
   fill.addColorStop(1, `rgb(${shirtTint(190, 190, 190, design.shirtColor).join(' ')})`);
-  // Flatten the old collar folds before drawing the new collar, while keeping
-  // the neck opening above this edge and the photographed shirt below it.
+  // Restrict new cloth to the actual collar pieces, leaving the chest's
+  // photographed folds and shading intact.
   ctx.fillStyle = fill;
-  ctx.fill(new Path2D('M365 268Q443 338 521 268L538 288L521 350H365L348 288Z'));
-  ctx.lineWidth = 1.6;
-  ctx.strokeStyle = '#26394a40';
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#26394a25';
   if (design.shirtCollar === 2) {
-    const band = new Path2D('M375 274Q443 312 511 274L514 294Q443 329 372 294Z');
+    const band = new Path2D('M375 274Q443 330 511 274L514 294Q443 350 372 294Z');
     ctx.fill(band); ctx.stroke(band);
     ctx.fillStyle = '#8a939d';
     ctx.beginPath(); ctx.arc(443, 309, 2.4, 0, Math.PI * 2); ctx.fill();

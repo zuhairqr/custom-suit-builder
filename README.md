@@ -60,6 +60,16 @@ It never uses a live payment or rendering service. To use installed Chrome, set
 to a specific browser executable. Optional screenshots can be saved to an existing
 directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
 
+For a visual garment matrix, run `node tests/visual-suit.cjs` with the same
+browser settings. It captures 18 native previews: jacket/two-piece/three-piece
+in front, inside and back views; waistcoat front/back; white/midnight shirts
+with all three collars; and a shirt-with-jacket combination. It also captures
+the mobile page. Output goes to `STUDIO_SCREENSHOT_DIR`, or
+`form-atelier-suit-qa` under the system temporary directory. Inspect these
+images visually; runtime checks alone cannot establish garment realism.
+Set `STUDIO_QA_FABRIC` to an exact catalogue name to repeat the matrix with a
+different cloth; the default is `Blue Rough Linen`.
+
 ## Data and integration boundaries
 
 - Designs, bag contents, measurements, body-feature selections, measurement unit

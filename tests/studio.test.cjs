@@ -54,6 +54,9 @@ async function addJacket(page) {
   await page.waitForURL('**/#cart');
   await page.locator('#to-fit').click();
   await page.waitForURL('**/#fit');
+  // The hash changes before its route handler mounts the passport fields.
+  // Wait before callers enumerate inputs with .all(), which does not auto-wait.
+  await page.locator('[data-measurement]').first().waitFor({state: 'visible'});
 }
 
 test('body features survive reloading an unfinished passport', async t => {
@@ -541,4 +544,36 @@ test('fabric season shortcuts stay in sync with facets and clearing filters', as
   assert.equal(await page.locator('[data-season="cool"]').getAttribute('aria-pressed'), 'true');
   await page.locator('#clear-fabric-filters').click();
   assert.equal(await page.locator('[data-season="all"]').getAttribute('aria-pressed'), 'true');
+});
+
+test('white collar variants blend into the photographed shirt without a horizontal bib edge', async t => {
+  const page = await studio(t);
+  await page.waitForFunction(() => studioModelCaptures.has('front'));
+  const seams = await page.evaluate(() => {
+    const capture = studioModelCaptures.get('front'), display = prepareTryOnDisplay(capture);
+    const options = {...design, shirtColor: 0, shirtTie: 1, shirtCollar: 0};
+    const composite = config => {
+      const c = makeCanvas(display.width, display.height), ctx = c.getContext('2d');
+      ctx.drawImage(display.photoFrame, 0, 0);
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.drawImage(studioShirtOverlay(display, capture, config), 0, 0);
+      return ctx.getImageData(0, 0, c.width, c.height).data;
+    };
+    const classic = composite(options);
+    return [1, 2].map(collar => {
+      options.shirtCollar = collar;
+      const variant = composite(options);
+      const differenceAt = y => {
+        let difference = 0, count = 0;
+        for (let x = 370; x < 516; x++) {
+          if (x > 410 && x < 476) continue; // Exclude the tie/placket.
+          const i = (Math.round(y * display.height / 1774) * display.width + Math.round(x * display.width / 887)) * 4;
+          for (let c = 0; c < 3; c++) { difference += variant[i+c] - classic[i+c]; count++; }
+        }
+        return difference / count;
+      };
+      return {collar, seam: Math.abs(differenceAt(348) - differenceAt(353))};
+    });
+  });
+  for (const result of seams) assert.ok(result.seam < 8, `Collar ${result.collar} must not create a flat bib edge (difference ${result.seam})`);
 });
