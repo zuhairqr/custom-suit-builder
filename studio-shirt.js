@@ -27,9 +27,11 @@ function studioShirtOverlay(display, capture, design) {
     for (let x = 0; x < canvas.width; x++) {
       const sx = x * 887 / canvas.width;
       if (sx < 155 || sx > 735 || (sy < 268 && (sx < 350 || sx > 535))) continue;
-      if (sy < 305 && ctx.isPointInPath(studioNeckSkin, sx, sy)) continue;
       const i = (y * canvas.width + x) * 4;
       const r = source.data[i], g = source.data[i + 1], b = source.data[i + 2], alpha = source.data[i + 3];
+      // Bright neutral collar edges can sit inside the approximate neck mask.
+      // Tint those edges too, while retaining darker beard and skin pixels.
+      if (sy < 305 && ctx.isPointInPath(studioNeckSkin, sx, sy) && (Math.min(r, g, b) < 175 || Math.max(r, g, b) - Math.min(r, g, b) > 22)) continue;
       if (!alpha || Math.min(r, g, b) < 95 || Math.max(r, g, b) - Math.min(r, g, b) > 42) continue;
       const rgb = shirtTint(r, g, b, design.shirtColor);
       for (let channel = 0; channel < 3; channel++) overlay.data[i + channel] = rgb[channel];
@@ -71,7 +73,7 @@ function studioShirtOverlay(display, capture, design) {
       }
       ctx.putImageData(frame, 0, 0);
     }
-    paintStudioShirtCollar(ctx, canvas, design);
+    paintStudioShirtCollar(ctx, canvas, design, source);
     if (tie === 2) {
       ctx.save();
       ctx.scale(canvas.width / 887, canvas.height / 1774);
@@ -88,8 +90,9 @@ function studioShirtOverlay(display, capture, design) {
   return canvas;
 }
 
-function paintStudioShirtCollar(ctx, canvas, design) {
+function paintStudioShirtCollar(ctx, canvas, design, source) {
   if (!design.shirtCollar) return; // Preserve the photographed classic collar.
+  const photographed = ctx.getImageData(0, 0, canvas.width, canvas.height);
   ctx.save();
   ctx.scale(canvas.width / 887, canvas.height / 1774);
   const color = studioShirtColors[design.shirtColor];
@@ -100,7 +103,7 @@ function paintStudioShirtCollar(ctx, canvas, design) {
   // Flatten the old collar folds before drawing the new collar, while keeping
   // the neck opening above this edge and the photographed shirt below it.
   ctx.fillStyle = fill;
-  ctx.fill(new Path2D('M365 268Q443 316 521 268L538 288L521 350H365L348 288Z'));
+  ctx.fill(new Path2D('M365 268Q443 338 521 268L538 288L521 350H365L348 288Z'));
   ctx.lineWidth = 1.6;
   ctx.strokeStyle = '#26394a40';
   if (design.shirtCollar === 2) {
@@ -109,16 +112,23 @@ function paintStudioShirtCollar(ctx, canvas, design) {
     ctx.fillStyle = '#8a939d';
     ctx.beginPath(); ctx.arc(443, 309, 2.4, 0, Math.PI * 2); ctx.fill();
   } else {
-    for (const shape of ['M365 268L435 299L389 342L348 288Z', 'M521 268L451 299L497 342L538 288Z']) {
+    for (const shape of ['M365 268L423 307L389 342L348 288Z', 'M521 268L463 307L497 342L538 288Z']) {
       const collar = new Path2D(shape); ctx.fill(collar); ctx.stroke(collar);
-    }
-    // Retain the original knot on top of the newly drawn collar.
-    if (studioShirtTie(design) !== 2) {
-      const knot = new Path2D('M429 291L443 301L457 291L462 308L450 329H436L424 308Z');
-      ctx.fillStyle = studioShirtTie(design) === 1 ? '#70263a' : '#263247';
-      ctx.fill(new Path2D('M436 320H450L454 355H432Z'));
-      ctx.fill(knot);
     }
   }
   ctx.restore();
+  if (design.shirtCollar === 1 && studioShirtTie(design) !== 2) {
+    // Restore the actual photographed knot after drawing the collar folds.
+    // A synthetic knot at y=291 crossed the neck opening (around y=303).
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let y = Math.floor(canvas.height * 302 / 1774); y < canvas.height * 356 / 1774; y++) {
+      for (let x = Math.floor(canvas.width * 412 / 887); x < canvas.width * 474 / 887; x++) {
+        const i = (y * canvas.width + x) * 4;
+        if (source.data[i + 2] > source.data[i] + 3 && Math.max(...source.data.slice(i, i + 3)) < 145) {
+          frame.data.set(photographed.data.subarray(i, i + 4), i);
+        }
+      }
+    }
+    ctx.putImageData(frame, 0, 0);
+  }
 }

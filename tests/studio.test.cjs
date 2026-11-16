@@ -396,3 +396,50 @@ test('Studio Navy look loads its local preview and applies a complete editable c
   assert.equal(await page.locator('.cart-line').count(), 1);
   assert.match(await page.locator('.cart-line').textContent(), /Deep Navy Worsted Twill/);
 });
+
+test('mobile panels expose fabric and tailoring without covering configuration controls', async t => {
+  const page = await studio(t);
+  await page.setViewportSize({width: 390, height: 844});
+  assert.equal(await page.locator('.cloth').isVisible(), true);
+  assert.equal(await page.locator('.tailoring').isVisible(), false);
+  await page.locator('[data-panel="tailoring"]').click();
+  assert.equal(await page.locator('.tailoring').isVisible(), true);
+  assert.equal(await page.locator('.cloth').isVisible(), false);
+  await page.locator('#style-jump').selectOption('silhouette');
+  await page.locator('[data-style="silhouette"][data-choice="1"]').click();
+  assert.equal(await page.locator('[data-style="silhouette"][data-choice="1"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => lookDetail), '', 'Fit changes retain the dressed studio model');
+  assert.equal(await page.locator('.order-bar').evaluate(el => getComputedStyle(el).position), 'static');
+  await page.locator('[data-panel="cloth"]').click();
+  assert.equal(await page.locator('.cloth').isVisible(), true);
+  for (const width of [360, 390, 820, 1024, 1440]) {
+    await page.setViewportSize({width, height: 900});
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No horizontal overflow at ${width}px`);
+  }
+});
+
+test('spread collar retains the photographed tie knot below the neck opening', async t => {
+  const page = await studio(t);
+  await page.waitForFunction(() => studioModelCaptures.has('front'));
+  const comparison = await page.evaluate(() => {
+    const capture = studioModelCaptures.get('front'), display = prepareTryOnDisplay(capture);
+    const options = {...design, shirtColor: 4, shirtTie: 1, shirtCollar: 0};
+    const classic = studioShirtOverlay(display, capture, options).getContext('2d').getImageData(0, 0, display.width, display.height).data;
+    options.shirtCollar = 1;
+    const spread = studioShirtOverlay(display, capture, options).getContext('2d').getImageData(0, 0, display.width, display.height).data;
+    const source = display.photoFrame.getContext('2d').getImageData(0, 0, display.width, display.height).data;
+    let knotPixels = 0, difference = 0, redAboveNeck = 0;
+    for (let y = 290; y < 350; y++) for (let x = 420; x < 467; x++) {
+      const i = (Math.round(y * display.height / 1774) * display.width + Math.round(x * display.width / 887)) * 4;
+      if (y >= 303 && source[i + 2] > source[i] + 3 && Math.max(...source.slice(i, i + 3)) < 145) {
+        knotPixels++;
+        for (let c = 0; c < 4; c++) difference = Math.max(difference, Math.abs(classic[i+c] - spread[i+c]));
+      }
+      if (y < 302 && spread[i] > spread[i+1] * 1.5 && spread[i] > spread[i+2] * 1.3 && spread[i+3]) redAboveNeck++;
+    }
+    return {knotPixels, difference, redAboveNeck};
+  });
+  assert.ok(comparison.knotPixels > 100);
+  assert.equal(comparison.difference, 0, 'Collar changes preserve knot position, shape and texture');
+  assert.equal(comparison.redAboveNeck, 0, 'Burgundy knot cannot rise into the neck');
+});

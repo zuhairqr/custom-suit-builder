@@ -320,6 +320,11 @@ function renderPreview() {
 }
 
 function focusConstruction(key) {
+  if (key === 'silhouette') {
+    lookDetail = '';
+    zoomed = false;
+    return;
+  }
   if (stylePiece(key) === 'shirt') {
     if (key === 'shirtCuff') shirtWithJacket = true;
     lookDetail = '';
@@ -440,6 +445,18 @@ function filterFabrics() {
   mountSwatches();
 }
 
+function showStudioPanel(panel) {
+  get('workbench').dataset.mobilePanel = panel;
+  for (const button of get('mobile-panel-tabs').querySelectorAll('[data-panel]')) {
+    button.setAttribute('aria-pressed', button.dataset.panel === panel);
+  }
+}
+
+get('mobile-panel-tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-panel]');
+  if (button) showStudioPanel(button.dataset.panel);
+});
+
 get('fabric-facets').addEventListener('change', filterFabrics);
 get('clear-fabric-filters').addEventListener('click', () => {
   for (const facet of fabricFacets) facet.value = 'all';
@@ -467,6 +484,7 @@ get('piece-tabs').addEventListener('click', (event) => {
   const button = event.target.closest('[data-piece]');
   if (!button) return;
   piece = button.dataset.piece;
+  showStudioPanel('tailoring');
   if (piece === 'shirt') {
     shirtWithJacket = false;
     angle = 'front';
@@ -751,6 +769,7 @@ function openCollections() {
 
 get('references').addEventListener('click', openCollections);
 get('open-collections').addEventListener('click', openCollections);
+get('open-studio-looks').addEventListener('click', openCollections);
 collectionGrid.addEventListener('click', (event) => {
   const button = event.target.closest('[data-collection]');
   if (!button) return;

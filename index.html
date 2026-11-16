@@ -7,6 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
   <title>Form Atelier | Suit Studio</title>
   <link rel="stylesheet" href="studio.css?v=photographic-cloth">
+  <link rel="stylesheet" href="atelier.css?v=editorial-studio">
   <script src="neckline-catalog.js" defer></script>
   <script src="catalog.js?v=photographic-cloth" defer></script>
   <script src="fit-icons.js" defer></script>
@@ -33,13 +34,13 @@
   <script src="studio-face-sheet.js" defer></script>
   <script src="studio-rear-images.js" defer></script>
   <script src="studio-faces.js?v=studio-angles" defer></script>
-  <script src="studio-shirt.js?v=folded-front-collar" defer></script>
+  <script src="studio-shirt.js?v=natural-tie-junction" defer></script>
   <script src="studio-model.js?v=folded-front-collar" defer></script>
   <script src="studio-render.js?v=instant-fit-export" defer></script>
   <!-- 3D rendering disabled -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
   <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
-  <script src="studio.js?v=photographic-cloth" defer></script>
+  <script src="studio.js?v=editorial-studio" defer></script>
 </head>
 <body>
   <header class="top">
@@ -54,8 +55,8 @@
   <main>
     <section id="studio" class="page">
       <div class="intro">
-        <div><p class="eyebrow">THE BESPOKE STUDIO <span> / </span> NO. 01</p><h1>Design your suit<span>.</span></h1></div>
-        <p>Choose your cloth, shape the cut, and see the details come together.</p>
+        <div><p class="eyebrow">THE PERSONAL TAILORING STUDIO <span> / </span> NO. 01</p><h1>Your suit, <em>your signature.</em></h1></div>
+        <div class="intro-note"><span class="studio-edition">FORM / YOUR INDIVIDUALITY</span><p>Considered cloth. A personal cut.<br>Every detail, entirely yours.</p></div>
       </div>
       <div class="outfit-bar">
         <label for="outfit">Suit pieces</label>
@@ -66,9 +67,10 @@
           <button type="button" data-piece="waistcoat" aria-pressed="false" hidden>Waistcoat (inner)</button>
           <button type="button" data-piece="shirt" aria-pressed="false">Shirt</button>
         </div>
+        <button id="open-studio-looks" class="lookbook-trigger" type="button" aria-haspopup="dialog">Curated looks <span aria-hidden="true">↗</span></button>
       </div>
       <div class="frame">
-        <div class="workbench">
+        <div class="workbench" id="workbench" data-mobile-panel="cloth">
           <aside class="glass cloth" aria-labelledby="cloth-title">
             <p class="eyebrow">01 / MATERIAL</p>
             <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count" aria-live="polite"></span></div>
@@ -155,6 +157,10 @@
               <button id="zoom" class="zoom" type="button" aria-label="Zoom preview" aria-pressed="false">+</button>
             </div>
           </section>
+          <div class="mobile-panel-tabs" id="mobile-panel-tabs" role="group" aria-label="Studio controls">
+            <button type="button" data-panel="cloth" aria-pressed="true"><span>01</span> Fabric</button>
+            <button type="button" data-panel="tailoring" aria-pressed="false"><span>02</span> Tailoring</button>
+          </div>
           <aside class="glass tailoring" aria-labelledby="tailoring-title">
             <p class="eyebrow">02 / CONSTRUCTION</p>
             <div class="panel-title"><h2 id="tailoring-title">Style</h2><button id="reset" type="button" class="quiet">Reset</button></div>
