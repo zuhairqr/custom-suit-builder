@@ -274,10 +274,10 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const hemFraction = studioModel ? (studioView === 'inside' ? .52 : .39) : .23;
   const hem = pointBetween(hipCenter, pointBetween(...knees, .5), hemFraction);
   const studioFrontCollar = studioModel && studioView !== 'back' && !vestOnly;
-  // The coat photograph has empty space above its collar tips. Align the tips,
-  // rather than the top of its source frame, with the studio shirt's neck seam.
-  const neck = [shoulderCenter[0], studioFrontCollar ? display.safeTop - torsoLength * .025
-    : Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
+  // Keep a conventional turned-down neckline. Exposed shirt shoulders are
+  // masked separately; raising/spreading the whole coat makes a standing collar.
+  const neck = [shoulderCenter[0], Math.max(display.safeTop + 1,
+    shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
   // End the sleeve mesh in the source photo's air gap, so it cannot pull
   // a second strip of the jacket body down beside the cuff.
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],
@@ -293,7 +293,7 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const upper = [[300, 123], [390, 190], [450, 328], [490, 352], [600, 380], [joinY, 512 - outside]]
     .map(([y, half]) => centeredRow([512, y], half));
   warpPanels(ctx, jacket, upper, [
-    centeredRow(neck, span * (studioFrontCollar ? .34 : .21)),
+    centeredRow(neck, span * (studioFrontCollar ? .25 : .21)),
     centeredRow(pointBetween(neck, shoulderCenter, .40), span * .34),
     centeredRow(pointBetween(neck, shoulderCenter, .88), shoulderWidth(.565, 450) * ease),
     centeredRow(pointBetween(shoulderCenter, armhole, .18), shoulderWidth(.635, 490) * ease),

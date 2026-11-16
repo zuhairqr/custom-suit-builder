@@ -181,6 +181,46 @@ function closedStudioJacket(design) {
   return complete;
 }
 
+function maskStudioShirtShoulders(output, display, capture) {
+  if (capture.rear) return;
+  if (!capture.neckShirtMask) {
+    const {width, height, photoFrame} = display;
+    const source = photoFrame.getContext('2d').getImageData(0, 0, width, height).data;
+    const collar = makeCanvas(width, height), ctx = collar.getContext('2d');
+    ctx.scale(width / 887, height / 1774);
+    // Preserve the real shirt collar around the neck and knot. The original
+    // shirt's shoulder fabric outside it must not dictate the jacket neckline.
+    ctx.fill(new Path2D('M378 245Q443 294 508 245L514 282L491 346L443 312L395 346L372 282Z'));
+    const allowed = ctx.getImageData(0, 0, width, height).data;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.scale(width / 887, height / 1774);
+    ctx.fill(studioNeckSkin);
+    const skin = ctx.getImageData(0, 0, width, height).data;
+    const mask = new Uint8Array(width * height);
+    for (let y = Math.floor(height * 240 / 1774); y < height * 335 / 1774; y++) {
+      for (let x = Math.floor(width * 325 / 887); x < width * 560 / 887; x++) {
+        const sx = x * 887 / width;
+        // Never remove central neck/chin pixels, including neutral beard
+        // highlights that could otherwise be mistaken for white fabric.
+        if (sx >= 392 && sx <= 495) continue;
+        const px = y * width + x, i = px * 4;
+        // Remove the whole photographed shirt edge, including its grey
+        // antialiasing fringe, while protecting the anatomical neck silhouette.
+        const warmSkin = source[i] > source[i + 2] + 30 && source[i] > source[i + 1] + 10;
+        if (source[i + 3] && !warmSkin) mask[px] = (255 - allowed[i + 3]) * (1 - skin[i + 3] / 255);
+      }
+    }
+    capture.neckShirtMask = mask;
+  }
+  const frame = output.getImageData(0, 0, display.width, display.height);
+  const mask = capture.neckShirtMask;
+  for (let px = 0; px < mask.length; px++) {
+    if (mask[px]) frame.data[px * 4 + 3] *= 1 - mask[px] / 255;
+  }
+  output.putImageData(frame, 0, 0);
+}
+
 function paintStudioGarment(design, angle, garmentView, studioFit) {
   const [primary, secondary] = studioGarmentAssets(angle, garmentView, design.outfit);
   if (!primary) return null;
@@ -225,7 +265,12 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   canvas.height = height;
   const output = canvas.getContext('2d');
   const trousers = paintStudioModelTrousers(output, display, design, capture);
+  output.save();
+  // Recolor the photographed shirt without compositing its translucent edge
+  // a second time, which creates a pale fringe around the neck and sleeves.
+  output.globalCompositeOperation = 'source-atop';
   output.drawImage(studioShirtOverlay(display, capture, design), 0, 0);
+  output.restore();
   if (face?.crop) paintStudioFace(output, width, height, face, capture.rear);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the
@@ -239,6 +284,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     output.clip(sleeveMask, 'evenodd');
     output.clearRect(0, 268, 887, 641);
     output.restore();
+    maskStudioShirtShoulders(output, display, capture);
   }
   if (needsJacket) {
     // The front quarters and rear vents can also reveal the trousers. Clearing

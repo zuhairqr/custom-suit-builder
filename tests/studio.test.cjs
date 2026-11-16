@@ -305,7 +305,7 @@ test('three-piece jacket stays closed and uses the same balanced cut as the two-
   assert.ok(proportions.skirt / proportions.chest <= 1.12, 'Jacket skirt must not flare out from the chest');
 });
 
-test('jacket collar covers the photographed shirt shoulders for every suit and collar', async t => {
+test('shirt shoulders are masked without raising the jacket collar or erasing the neck', async t => {
   const page = await studio(t);
   for (const outfit of ['0', '1', '2']) {
     await page.locator('#outfit').selectOption(outfit);
@@ -321,7 +321,7 @@ test('jacket collar covers the photographed shirt shoulders for every suit and c
         let whiteShoulder = 0;
         // Photo-space patches outside the collar, where exposed shirt formed
         // the two white wings reported by the user. Allow the collar's fine edge.
-        for (const [left, right] of [[350, 380], [506, 536]]) {
+        for (const [left, right] of [[350, 370], [519, 539]]) {
           for (let sy = 275; sy < 315; sy++) for (let sx = left; sx < right; sx++) {
             const i = (Math.round(sy * canvas.height / 1774) * canvas.width + Math.round(sx * canvas.width / 887)) * 4;
             const min = Math.min(data[i], data[i + 1], data[i + 2]);
@@ -329,9 +329,27 @@ test('jacket collar covers the photographed shirt shoulders for every suit and c
             if (min > 175 && max - min < 40 && data[i + 3] > 200) whiteShoulder++;
           }
         }
-        return whiteShoulder;
+        const coat = tryOnLayer('studio-outerwear');
+        const cloth = coat.getContext('2d').getImageData(0, 0, coat.width, coat.height).data;
+        let raisedCollar = 0;
+        for (const [left, right] of [[350, 380], [506, 536]]) {
+          for (let sy = 268; sy < 283; sy++) for (let sx = left; sx < right; sx++) {
+            const i = (Math.round(sy * coat.height / 1774) * coat.width + Math.round(sx * coat.width / 887)) * 4;
+            if (cloth[i + 3] > 200) raisedCollar++;
+          }
+        }
+        const original = prepareTryOnDisplay(studioModelCaptures.get('front')).photoFrame
+          .getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let faceDifference = 0;
+        for (let sy = 235; sy < 265; sy++) for (let sx = 395; sx < 495; sx++) {
+          const i = (Math.round(sy * canvas.height / 1774) * canvas.width + Math.round(sx * canvas.width / 887)) * 4;
+          for (let channel = 0; channel < 4; channel++) faceDifference = Math.max(faceDifference, Math.abs(data[i + channel] - original[i + channel]));
+        }
+        return {whiteShoulder, raisedCollar, faceDifference};
       });
-      assert.ok(pixels < 50, `${outfit}/${collar}: collar must cover shirt wings (saw ${pixels} white pixels)`);
+      assert.ok(pixels.whiteShoulder < 5, `${outfit}/${collar}: fabric outside the shirt collar must be removed (saw ${pixels.whiteShoulder} white pixels)`);
+      assert.equal(pixels.raisedCollar, 0, 'Hiding the shirt must not create a standing coat collar');
+      assert.ok(pixels.faceDifference <= 1, 'Shirt masking must preserve the original chin and neck pixels');
     }
   }
 });

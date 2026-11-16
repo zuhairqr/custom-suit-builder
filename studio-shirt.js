@@ -3,6 +3,7 @@
 const studioShirtColors = ['#f2f4f8', '#aecde5', '#f4e8d3', '#e9cacc', '#354660'];
 const studioShirtRGB = studioShirtColors.map(color => color.slice(1).match(/../g).map(value => parseInt(value, 16)));
 const studioShirtTie = (design) => design.shirtCollar === 2 ? 2 : design.shirtTie;
+const studioNeckSkin = new Path2D('M370 0H516V240Q506 276 443 302Q384 277 370 240Z');
 
 function shirtTint(red, green, blue, color) {
   if (!color) return [red, green, blue];
@@ -26,6 +27,7 @@ function studioShirtOverlay(display, capture, design) {
     for (let x = 0; x < canvas.width; x++) {
       const sx = x * 887 / canvas.width;
       if (sx < 155 || sx > 735 || (sy < 268 && (sx < 350 || sx > 535))) continue;
+      if (sy < 305 && ctx.isPointInPath(studioNeckSkin, sx, sy)) continue;
       const i = (y * canvas.width + x) * 4;
       const r = source.data[i], g = source.data[i + 1], b = source.data[i + 2], alpha = source.data[i + 3];
       if (!alpha || Math.min(r, g, b) < 95 || Math.max(r, g, b) - Math.min(r, g, b) > 42) continue;
