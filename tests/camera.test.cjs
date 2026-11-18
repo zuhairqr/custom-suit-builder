@@ -219,3 +219,108 @@ test('valid face upload replaces a live camera and camera dialogs fit mobile scr
   assert.ok(await page.locator('#body-dialog').evaluate(el => el.scrollWidth <= el.clientWidth));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 });
+
+test('a failed old live pose inspection cannot cancel a newer manual capture validation', async t => {
+  const page = await studio(t);
+  await fixturePose(page);
+  await page.evaluate(() => {
+    const original = detectBodyPose;
+    let call = 0;
+    detectBodyPose = input => ++call === 1
+      ? new Promise((_, reject) => { window.rejectOldInspection = reject; })
+      : new Promise(resolve => { window.finishManualValidation = async () => resolve(await original(input)); });
+  });
+  await page.locator('#open-body').click();
+  await page.locator('#body-start').click();
+  await page.waitForFunction(() => typeof window.rejectOldInspection === 'function');
+  await page.locator('#body-manual').click();
+  await page.waitForFunction(() => typeof window.finishManualValidation === 'function');
+  await page.evaluate(() => window.rejectOldInspection(new Error('Old inspection failed')));
+  // The newer validation owns the UI and camera lifecycle now.
+  assert.equal(await page.locator('#body-dialog').getAttribute('data-phase'), 'validating');
+  await page.evaluate(() => window.finishManualValidation());
+  await page.waitForFunction(() => document.getElementById('body-dialog').dataset.phase === 'ready');
+  assert.equal(await stopped(page), true);
+  assert.equal(await page.locator('#body-apply').isEnabled(), true);
+});
+
+test('decoded photo bitmaps are released even when canvas processing fails', async t => {
+  const page = await studio(t);
+  await page.evaluate(() => {
+    window.closedBitmaps = 0;
+    // Simulate a decoded resource that becomes unusable before drawImage.
+    createImageBitmap = async () => ({width: 10, height: 10, close() { window.closedBitmaps++; }});
+  });
+  for (const mode of ['face', 'body']) {
+    await page.locator('#open-' + mode).click();
+    await page.locator('#' + mode + '-file').setInputFiles({name: 'decoded.png', mimeType: 'image/png', buffer: Buffer.from('decode handled by test fixture')});
+    await page.waitForFunction(id => document.getElementById(id).textContent.includes('could not be opened'), mode + '-status');
+    assert.equal(await page.evaluate(() => window.closedBitmaps), mode === 'face' ? 1 : 2, 'Release decoded image on processing failure');
+    await closeDialog(page, mode + '-dialog');
+  }
+});
+
+test('a new pending face upload cannot apply the old draft and closes its bitmap after cancellation', async t => {
+  const page = await studio(t);
+  await faceCamera(page);
+  await page.locator('#capture-face').click();
+  await page.locator('#apply-face').click();
+  const priorVersion = await page.evaluate(() => faceState.version);
+  await page.locator('#open-face').click();
+  assert.equal(await page.locator('#apply-face').isEnabled(), true);
+  const png = await page.evaluate(() => {
+    const c = document.createElement('canvas'); c.width=100; c.height=140;
+    c.getContext('2d').fillRect(0,0,100,140);
+    const decode = createImageBitmap;
+    createImageBitmap = selected => new Promise(resolve => {
+      window.completeLateFaceUpload = async () => { window.lateFaceBitmap = await decode(selected); resolve(window.lateFaceBitmap); };
+    });
+    return c.toDataURL().split(',')[1];
+  });
+  await page.locator('#face-file').setInputFiles({name:'replacement.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+  assert.equal(await page.locator('#apply-face').isEnabled(), false, 'Do not apply the old face while a replacement is loading');
+  await closeDialog(page,'face-dialog');
+  await page.evaluate(() => window.completeLateFaceUpload());
+  await page.waitForFunction(() => window.lateFaceBitmap.width === 0);
+  assert.equal(await page.evaluate(() => faceState.version), priorVersion, 'Cancelled upload cannot replace the applied face');
+  await page.locator('#open-face').click();
+  assert.equal(await page.locator('#apply-face').isEnabled(), true, 'Previously applied face remains available');
+});
+
+test('an unreadable live video frame releases the camera instead of leaving an unhandled inspection', async t => {
+  const page = await studio(t);
+  await fixturePose(page);
+  await page.evaluate(() => {
+    const original = copyBodyFrame;
+    copyBodyFrame = (source, ...args) => {
+      if (source instanceof HTMLVideoElement) throw new DOMException('Decoded frame lost', 'InvalidStateError');
+      return original(source, ...args);
+    };
+  });
+  await page.locator('#open-body').click(); await page.locator('#body-start').click();
+  await page.waitForFunction(() => document.getElementById('body-status').textContent.includes('Pose detection stopped'));
+  assert.equal(await page.locator('#body-dialog').getAttribute('data-phase'), 'idle');
+  assert.equal(await stopped(page), true);
+  assert.equal(await page.locator('#body-start').isEnabled(), true);
+});
+
+test('manual capture handles a frame lost at the click without leaking the camera', async t => {
+  const page = await studio(t);
+  await fixturePose(page);
+  await page.locator('#open-body').click(); await page.locator('#body-start').click();
+  await page.waitForFunction(() => !document.getElementById('body-manual').disabled);
+  await page.evaluate(() => {
+    const original = copyBodyFrame;
+    copyBodyFrame = (source, ...args) => {
+      if (source instanceof HTMLVideoElement) throw new DOMException('Frame lost at shutter', 'InvalidStateError');
+      return original(source, ...args);
+    };
+    // Install the failure and click in one task, before another live poll.
+    document.getElementById('body-manual').click();
+  });
+  assert.match(await page.locator('#body-status').textContent(), /frame could not be captured/);
+  assert.equal(await page.locator('#body-dialog').getAttribute('data-phase'), 'idle');
+  assert.equal(await stopped(page), true);
+  assert.equal(await page.locator('#body-start').isEnabled(), true);
+  assert.equal(await page.locator('#body-apply').isEnabled(), false);
+});

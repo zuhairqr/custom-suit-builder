@@ -95,6 +95,7 @@ function installFaceCamera(onChange) {
       return;
     }
     stopCamera();
+    setPhoto(null);
     const request = generation;
     enable.disabled = true;
     stop.hidden = false;
@@ -164,9 +165,12 @@ function installFaceCamera(onChange) {
       return;
     }
     stopCamera();
+    setPhoto(null);
     const request = generation;
+    status.textContent = 'Opening the face photo…';
+    let bitmap;
     try {
-      const bitmap = await createImageBitmap(selected);
+      bitmap = await createImageBitmap(selected);
       if (request === generation && dialog.open) {
         const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
         const local = makeCanvas(Math.max(1, Math.round(bitmap.width * scale)), Math.max(1, Math.round(bitmap.height * scale)));
@@ -174,9 +178,10 @@ function installFaceCamera(onChange) {
         setPhoto(local);
         status.textContent = 'Move and zoom your face into the oval, then select Apply face.';
       }
-      bitmap.close();
     } catch {
       if (request === generation) status.textContent = 'That photo could not be opened.';
+    } finally {
+      bitmap?.close();
     }
   });
 

@@ -22,7 +22,18 @@ function loadStudioModel(direction, onLoad) {
   const image = new Image();
   image.onload = () => {
     const photo = makeCanvas(image.naturalWidth, image.naturalHeight);
-    photo.getContext('2d').drawImage(image, 0, 0);
+    const photoContext = photo.getContext('2d');
+    photoContext.drawImage(image, 0, 0);
+    // The supplied cutout contains near-transparent chroma spill around hands,
+    // cuffs and hair, and alpha 252–254 across otherwise solid fabric. Repeated
+    // compositing amplified that fringe and punched tiny holes through cloth.
+    const matte = photoContext.getImageData(0, 0, photo.width, photo.height);
+    for (let i = 0; i < matte.data.length; i += 4) {
+      const alpha = matte.data[i + 3];
+      if (alpha < 12) matte.data.fill(0, i, i + 4);
+      else if (alpha > 240) matte.data[i + 3] = 255;
+    }
+    photoContext.putImageData(matte, 0, 0);
     const pose = Object.fromEntries(Object.entries(studioModelPose).map(([index, [x, y]]) =>
       [index, {x: x / 887, y: y / 1774}]));
     studioModelCaptures.set(direction, {
@@ -68,7 +79,7 @@ function studioModelClothes(display, capture) {
       const tieHalf = capture.rear ? 0 : Math.min(36, (788 - sourceY) * 1.12);
       // Keep blue-toned shadows on the white cuffs out of the trouser mask.
       if (sourceX < 250 || sourceX > 625 || Math.abs(sourceX - 443) < tieHalf ||
-          photo.data[i] > 118 || photo.data[i + 2] - photo.data[i] < 6) continue;
+          photo.data[i] > 118 || (photo.data[i + 2] - photo.data[i] < 6 && !(Math.max(photo.data[i], photo.data[i + 1], photo.data[i + 2]) < 65 && photo.data[i + 2] >= photo.data[i] - 4))) continue;
       for (let c = 0; c < 4; c++) cloth.data[i + c] = photo.data[i + c];
       photo.data[i + 3] = 0;
     }
@@ -127,7 +138,7 @@ function paintStudioModelTrousers(output, display, design, capture) {
 }
 
 function drawStudioTrouserFit(output, trousers, display, design) {
-  if (design.outfit !== 1) {
+  if (!design.outfit) {
     drawTrouserFit(output, trousers, design.trouserFit);
     return;
   }

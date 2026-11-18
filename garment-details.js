@@ -6,17 +6,17 @@
 
 const lapels = [
   // 0: Classic Notch Lapel (standard width, moderate point)
-  'M420 380 Q402 425 370 462 L346 490 L380 507 L350 516 Q414 631 512 720 Q469 535 420 380Z',
+  'M380 507L350 516Q414 631 512 720Q484 601 456 518Z',
   // 1: Wide Notch Lapel
-  'M420 380 Q398 425 351 462 L320 490 L365 510 L321 523 Q402 638 512 720 Q469 535 420 380Z',
+  'M365 510L321 523Q402 638 512 720Q484 601 456 518Z',
   // 2: Peak Lapel (sharp point, pronounced)
-  'M420 380 Q402 426 369 463 L385 503 L321 478 Q391 630 512 720 Q469 535 420 380Z',
+  'M385 503L321 478Q391 630 512 720Q484 601 456 518Z',
   // 3: Wide Peak Lapel
-  'M420 380 Q398 426 351 463 L376 509 L287 468 Q378 638 512 720 Q469 535 420 380Z',
+  'M376 509L287 468Q378 638 512 720Q484 601 456 518Z',
   // 4: Shawl Lapel (curved, rounded collar)
-  'M420 380 Q374 438 365 515 Q386 630 512 720 Q469 535 420 380Z',
+  'M365 470Q370 590 512 720Q484 601 456 495Q404 471 365 470Z',
   // 5: Shawl Lapel (butterfly style)
-  'M420 380 C385 418 340 465 345 531 C363 617 422 671 512 720 Q469 535 420 380Z',
+  'M345 480C343 585 416 668 512 720Q484 601 456 495Q396 464 345 480Z',
   // 6: Narrow Notch (slim profile)
   'M424 321 L352 415 L380 450 L317 472 Q386 511 412 599 Q454 673 512 720 Q460 534 424 321Z',
   // 7: High-gorge Notch (tall gorge line)
@@ -144,10 +144,11 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   const {x, y, w, h, grain = 0} = bounds;
   const shape = new Path2D(path);
   const clothPhoto = !finish && photoCloth(fabric);
+  const softCloth = bounds.subtle && !finish;
   ctx.save();
-  ctx.shadowColor = clothPhoto ? '#090d1578' : '#090d15a6';
-  ctx.shadowBlur = clothPhoto ? 4 : 6;
-  ctx.shadowOffsetY = clothPhoto ? 2 : 3;
+  ctx.shadowColor = softCloth ? '#090d1538' : clothPhoto ? '#090d1578' : '#090d15a6';
+  ctx.shadowBlur = softCloth ? 2 : clothPhoto ? 4 : 6;
+  ctx.shadowOffsetY = softCloth ? 1 : clothPhoto ? 2 : 3;
   if (bounds.matchBody) {
     // Pocket cut from matching cloth. Let the jacket's existing grid run
     // through the pocket and show the cut with the edge and its shadow.
@@ -166,13 +167,13 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   ctx.restore();
 
   const sheen = ctx.createLinearGradient(x, y, x + w, y + h * 0.33);
-  sheen.addColorStop(0, clothPhoto ? '#03070c35' : '#03070c60');
+  sheen.addColorStop(0, softCloth ? '#03070c18' : clothPhoto ? '#03070c35' : '#03070c60');
   sheen.addColorStop(0.34, finish ? '#ffffff40' : '#ffffff17');
   sheen.addColorStop(0.67, '#ffffff08');
-  sheen.addColorStop(1, clothPhoto ? '#05090f54' : '#05090f85');
+  sheen.addColorStop(1, softCloth ? '#05090f2c' : clothPhoto ? '#05090f54' : '#05090f85');
   ctx.fillStyle = sheen;
   ctx.fill(shape);
-  ink(ctx, shape, clothPhoto ? '#0a0d125b' : '#0a0d126e', 1.8);
+  ink(ctx, shape, softCloth ? '#0a0d1238' : clothPhoto ? '#0a0d125b' : '#0a0d126e', softCloth ? .9 : 1.8);
 }
 
 function weaveHasLines(fabric) {
@@ -355,7 +356,7 @@ function paintFrontDetails(ctx, design, split, open = false) {
       ctx.scale(1, 1.24);
       ctx.translate(0, -321);
     }
-    fabricSurface(ctx, lapelPath, material, {x: 310, y: 320, w: 202, h: 405, grain: weaveHasLines(material) ? -9 : -14}, facing);
+    fabricSurface(ctx, lapelPath, material, {x: 310, y: 320, w: 202, h: 405, grain: weaveHasLines(material) ? -9 : -14, subtle: true}, facing);
 
     // Add subtle depth to lapel edge for better definition
     const lapelDepth = ctx.createLinearGradient(420, 320, 380, 550);
@@ -365,23 +366,19 @@ function paintFrontDetails(ctx, design, split, open = false) {
     ctx.fillStyle = lapelDepth;
     ctx.fill(new Path2D(lapelPath));
 
-    if (lapel <= 3) {
-      // The upper collar is a turned-over piece, joined to the lapel at the
-      // gorge. Give it a roll and seam instead of one uninterrupted flat strip.
-      ctx.save();
-      ctx.clip(new Path2D(lapelPath));
-      const collarRoll = ctx.createLinearGradient(365, 428, 462, 487);
-      collarRoll.addColorStop(0, '#171f2a32');
-      collarRoll.addColorStop(.48, '#ffffff15');
-      collarRoll.addColorStop(1, '#0a152933');
-      ctx.fillStyle = collarRoll;
-      ctx.fill(new Path2D('M420 380Q399 428 360 470L384 512L462 527Q442 445 420 380Z'));
-      const gorge = ['M380 507Q414 514 456 518', 'M365 510Q408 517 456 518',
-        'M385 503Q420 513 456 518', 'M376 509Q416 517 456 518'][lapel];
-      ink(ctx, gorge, '#12223855', 1.7);
-      ctx.translate(0, 2);
-      ink(ctx, gorge, '#ffffff20', 1);
-      ctx.restore();
+    // The collar above the gorge is already present in the photograph. Keep
+    // its cloth and shading instead of painting a second flat triangle over it.
+    // A quiet roll seam joins that collar to the selected lower lapel.
+    if (lapel <= 5) {
+      const rolls = [
+        'M420 380Q402 425 370 462L346 490L380 507',
+        'M420 380Q398 425 351 462L320 490L365 510',
+        'M420 380Q402 426 369 463L385 503',
+        'M420 380Q398 426 351 463L376 509',
+        'M420 380Q374 438 365 480',
+        'M420 380C385 418 340 465 345 495',
+      ];
+      ink(ctx, rolls[lapel], '#14253926', 1.6);
     }
 
     const edge = {

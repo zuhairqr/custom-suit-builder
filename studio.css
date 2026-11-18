@@ -617,3 +617,10 @@ dialog::backdrop { background: #000a; }
 #studio .visual-foot .studio-faces { position: static; transform: none; display: flex; gap: 5px; flex-shrink: 0; }
 #studio .visual-foot .studio-faces[hidden] { display: none; }
 #studio .visual-foot .studio-faces button { width: 28px; min-height: 0; padding: 1px; border-radius: 5px; }
+@media (max-width: 520px) {
+  /* Two narrow sidebars broke option names into individual letters. */
+  #studio .workbench { grid-template-columns: minmax(0, 1fr); }
+  #studio .glass { grid-column: 1; }
+  #studio .swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #studio .swatch span { font-size: 11px; }
+}

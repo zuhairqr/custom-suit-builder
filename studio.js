@@ -187,7 +187,7 @@ function mountStudioQuickOptions() {
   if (!container) return;
   const groups = [
     ['lapel', 'Jacket style', [[2, 'Peak'], [0, 'Notch'], [4, 'Shawl']]],
-    ['closure', 'Button stance', [[4, 'Double'], [0, 'Single'], [5, 'Three']]],
+    ['closure', 'Button stance', [[4, 'Double'], [1, 'Single'], [5, 'Three']]],
     ['pocket', 'Pocket style', [[0, 'Flap'], [1, 'Welt'], [2, 'Patch']]],
   ];
   container.innerHTML = groups.map(([key, title, choices]) => `
@@ -420,6 +420,15 @@ function renderPreview() {
 }
 
 function focusConstruction(key, trigger = null) {
+  if (key === 'silhouette') {
+    // A cut changes the whole dressed silhouette; a mannequin close-up hides
+    // the very fit the customer is trying to compare.
+    lookDetail = '';
+    previewDetailTrigger = null;
+    jacketHidden = false;
+    zoomed = false;
+    return;
+  }
   lookDetail = key;
   previewDetailTrigger = trigger;
   zoomed = false;
@@ -500,6 +509,10 @@ function orderTotal() {
 }
 
 function route() {
+  if (!get('fit').hidden) {
+    storePassportForm(get('passport-items'), bag, fitUnit);
+    save();
+  }
   let page = location.hash.slice(1);
   if (!pageIds.includes(page)) page = 'studio';
   if (['fit', 'checkout'].includes(page) && !bag.length) page = 'cart';
@@ -830,6 +843,11 @@ get('cart-lines').addEventListener('click', (event) => {
   if (event.target.hasAttribute('data-edit')) {
     editIndex = Number(event.target.dataset.edit);
     design = safeDesign(bag[editIndex]);
+    set3DPreviewVisible(false);
+    jacketHidden = false;
+    waistcoatHidden = false;
+    zoomed = false;
+    previewDetailTrigger = null;
     lookDetail = '';
     piece = 'jacket';
     angle = 'front';
@@ -848,6 +866,13 @@ get('passport-items').addEventListener('input', (event) => {
   save();
 });
 
+window.addEventListener('pagehide', () => {
+  if (!get('fit').hidden) {
+    storePassportForm(get('passport-items'), bag, fitUnit);
+    save();
+  }
+});
+
 get('passport-unit').addEventListener('change', (event) => {
   const invalid = [...get('passport-items').querySelectorAll('[data-measurement]')].find((input) =>
     input.validity.badInput || (input.value !== '' && !input.validity.valid));
@@ -856,6 +881,7 @@ get('passport-unit').addEventListener('change', (event) => {
     invalid.reportValidity();
     return;
   }
+  storePassportForm(get('passport-items'), bag, fitUnit);
   fitUnit = event.target.value;
   mountSizePassport(get('passport-items'), bag, fitUnit);
   save();
@@ -871,15 +897,7 @@ get('body-options').addEventListener('change', ({target}) => {
 get('fit-form').addEventListener('submit', (event) => {
   event.preventDefault();
   fit = Object.fromEntries(new FormData(event.currentTarget));
-  // Read any browser-filled values that did not dispatch an input event.
-  for (const input of get('passport-items').querySelectorAll('[data-measurement], [data-size-label]')) {
-    const {passportItem, passportPiece} = input.closest('[data-passport-piece]').dataset;
-    const entry = bag[Number(passportItem)].passport[passportPiece];
-    const key = input.dataset.measurement;
-    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], fitUnit)) {
-      storePassportInput(bag, input, fitUnit);
-    }
-  }
+  storePassportForm(get('passport-items'), bag, fitUnit);
   save();
   if (sizePassportReady()) navigate('checkout');
 });

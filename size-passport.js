@@ -109,6 +109,22 @@ function storePassportInput(items, input, unit) {
   else delete entry.measurements[key];
 }
 
+function storePassportForm(container, items, unit) {
+  for (const input of container.querySelectorAll('[data-measurement], [data-size-label]')) {
+    const fieldset = input.closest('[data-passport-piece]');
+    if (!fieldset) continue;
+    const {passportItem, passportPiece} = fieldset.dataset;
+    const entry = items[Number(passportItem)]?.passport?.[passportPiece];
+    if (!entry) continue;
+    const key = input.dataset.measurement;
+    // Unit switches show rounded values. Preserve the original centimetres
+    // when that displayed value has not changed, but still collect autofill.
+    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], unit)) {
+      storePassportInput(items, input, unit);
+    }
+  }
+}
+
 function orderFabric(index) {
   const {name, code, material} = fabrics[index];
   return {name, code, material};

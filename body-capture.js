@@ -49,6 +49,7 @@ function installBodyCapture(onChange) {
   let attempts = 0;
   let lastFrame = -1;
   let analysisFrame;
+  let inspectionRevision = 0;
   let lastSpoken = '';
   let lastSpokenAt = -Infinity;
 
@@ -114,12 +115,15 @@ function installBodyCapture(onChange) {
       return;
     }
     lastFrame = video.currentTime;
-    analysisFrame ||= copyBodyFrame(video, video.videoWidth, video.videoHeight, 640);
-    const frame = analysisFrame;
-    frame.getContext('2d').drawImage(video, 0, 0, frame.width, frame.height);
+    const revision = inspectionRevision;
     try {
+      // A disconnected/undecodable video frame can fail before pose inference.
+      // Treat it like a detector failure and release the active camera too.
+      analysisFrame ||= copyBodyFrame(video, video.videoWidth, video.videoHeight, 640);
+      const frame = analysisFrame;
+      frame.getContext('2d').drawImage(video, 0, 0, frame.width, frame.height);
       const landmarks = await detectBodyPose(frame);
-      if (request !== epoch || !stream || phase === 'validating') return;
+      if (request !== epoch || revision !== inspectionRevision || !stream || phase === 'validating') return;
       const aspect = frame.width / frame.height;
       const fit = bodyFraming(landmarks, aspect, true);
       const problem = fit.message || bodyImageQuality(frame, fit.pose);
@@ -145,7 +149,7 @@ function installBodyCapture(onChange) {
       }
       schedule(request);
     } catch {
-      if (request !== epoch) return;
+      if (request !== epoch || revision !== inspectionRevision) return;
       stop();
       updateState('idle');
       announce('Pose detection stopped. Restart the camera or choose a full-body photo.');
@@ -242,16 +246,27 @@ function installBodyCapture(onChange) {
     }
   }
 
-  function captureFrame(automatic) {
+  async function captureFrame(automatic) {
     if (!stream || !video.videoWidth || !['detecting', 'position-valid', 'countdown'].includes(phase)) return;
     clearTimeout(poll);
+    // A manual capture can interrupt an asynchronous live inspection. Neither
+    // that old result nor its error may take ownership of the newer validation.
+    inspectionRevision++;
     const request = epoch;
-    const photo = copyBodyFrame(video, video.videoWidth, video.videoHeight);
-    updateState('captured');
-    dialog.classList.remove('body-shutter');
-    void dialog.offsetWidth;
-    dialog.classList.add('body-shutter');
-    validatePhoto(photo, request, true, automatic);
+    try {
+      const photo = copyBodyFrame(video, video.videoWidth, video.videoHeight);
+      updateState('captured');
+      dialog.classList.remove('body-shutter');
+      void dialog.offsetWidth;
+      dialog.classList.add('body-shutter');
+      await validatePhoto(photo, request, true, automatic);
+    } catch {
+      if (request !== epoch || !dialog.open) return;
+      stop();
+      clearDraft();
+      updateState('idle');
+      announce('The camera frame could not be captured. Restart the camera or choose a full-body photo.');
+    }
   }
 
   get('open-body').addEventListener('click', () => {
@@ -292,15 +307,20 @@ function installBodyCapture(onChange) {
     const request = epoch;
     updateState('validating');
     announce('Opening the full-body photo…');
+    let bitmap;
     try {
-      const bitmap = await createImageBitmap(selected);
+      bitmap = await createImageBitmap(selected);
+      if (request !== epoch || !dialog.open) return;
       const photo = copyBodyFrame(bitmap, bitmap.width, bitmap.height, 2400);
       bitmap.close();
+      bitmap = null;
       if (request === epoch && dialog.open) await validatePhoto(photo, request, false);
     } catch {
       if (request !== epoch) return;
       updateState('idle');
       announce('That photo could not be opened.');
+    } finally {
+      bitmap?.close();
     }
   });
   apply.addEventListener('click', () => {

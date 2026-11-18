@@ -127,3 +127,59 @@ test('photographic fitting keeps the neck intact and responsive screens fit thei
     assert.ok(framing.faces >= framing.stage, 'Face controls must not cover the trouser hems or shoes');
   }
 });
+
+test('the light suit recolors opaque dark folds without filling real between-leg background', async t => {
+  const page = await studio(t);
+  await page.locator('#fabric-search').fill('Blue Rough Linen');
+  await page.locator('[data-fabric]').first().click();
+  await page.waitForFunction(() => photoCloth(design.fabric));
+  await page.evaluate(() => { design.closure=1;design.lapel=2; });
+  await dressedView(page,1);
+  const patches=await page.locator('#fabric-model').evaluate(canvas=>{
+    const ctx=canvas.getContext('2d');
+    const sample=([x,y])=>Array.from(ctx.getImageData(Math.round(x*canvas.width/887),Math.round(y*canvas.height/1774),1,1).data);
+    return {cloth:[[435,966],[438,975],[333,1644],[526,1645]].map(sample),gap:sample([443,1300])};
+  });
+  for(const rgba of patches.cloth) {
+    assert.ok(rgba[3]>=252, `Actual fabric must remain opaque (${rgba})`);
+    assert.ok(rgba[0]>=35 && rgba[2]-rgba[0]>=12, `Deep folds must inherit the selected light-blue cloth (${rgba})`);
+  }
+  assert.equal(patches.gap[3],0,'The anatomical space between legs remains transparent');
+});
+
+test('studio cutouts have no low-alpha chroma specks while keeping antialiased edges', async t=>{
+  const page=await studio(t);await dressedView(page,1);
+  const matte=await page.evaluate(()=>{
+    const c=studioModelCaptures.get('front').photo,d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    let stray=0,edges=0,opaque=0;
+    for(let i=3;i<d.length;i+=4){if(d[i]>0&&d[i]<12)stray++;else if(d[i]>0&&d[i]<255)edges++;else if(d[i]===255)opaque++;}
+    return {stray,edges,opaque};
+  });
+  assert.equal(matte.stray,0,'Remove nearly invisible source spill before resampling can amplify it');
+  assert.ok(matte.edges>100,'Keep a soft antialiased silhouette instead of a hard cutout');
+  assert.ok(matte.opaque>100000,'Preserve the original model and cloth interiors');
+});
+
+test('every two-piece and three-piece trouser cut stays centered over the photographed ankles', async t=>{
+  const page=await studio(t);await dressedView(page,1);
+  const shifts=await page.evaluate(()=>{
+    const display=prepareTryOnDisplay(studioModelCaptures.get('front'));
+    const anchors=bodyPoints.ankles.map(index=>display.point(index)[0]);
+    const source=makeCanvas(display.width,display.height),ctx=source.getContext('2d');
+    ctx.fillStyle='#89abc9';
+    for(const center of anchors)ctx.fillRect(center-20,display.height*.5,40,display.height*.43);
+    const results=[];
+    for(const outfit of [1,2])for(const trouserFit of [0,1,2,3]){
+      const output=makeCanvas(display.width,display.height),target=output.getContext('2d');
+      drawStudioTrouserFit(target,source,display,{...design,outfit,trouserFit});
+      const y=Math.floor(display.height*.91),row=target.getImageData(0,y,display.width,1).data;
+      for(const [leg,center] of anchors.entries()){
+        let left=display.width,right=0;
+        for(let x=Math.floor(center-45);x<=center+45;x++)if(row[x*4+3]>128){left=Math.min(left,x);right=Math.max(right,x);}
+        results.push({outfit,trouserFit,leg,shift:Math.abs((left+right+1)/2-center)});
+      }
+    }
+    return results;
+  });
+  for(const result of shifts)assert.ok(result.shift<1.6,`Trouser hem must stay over its shoe: ${JSON.stringify(result)}`);
+});
