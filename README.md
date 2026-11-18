@@ -41,34 +41,26 @@ Open <http://127.0.0.1:8080>. There is no production dependency installation or
 build step. Use localhost for camera access; deployed camera access requires
 HTTPS and browser permission.
 
-## Browser checks
+## Current SuitCraft checks
 
-The regression suite uses Node.js 20+ and Playwright with Microsoft Edge installed.
-Install Playwright locally (the application itself does not use it):
+Run the current workflow, try-on and browser fitting checks with Node.js 20+:
 
 ```powershell
-npm install --no-save --package-lock=false playwright@1.62.1
-node --test tests/studio.test.cjs
+node --test studio-workflow.test.cjs try-on.test.cjs tests/studio-fitting.test.cjs
 ```
 
-The suite serves its own ephemeral localhost port, opens an isolated headless
-browser, and blocks all external requests. It checks unfinished passport
-persistence, autofill and unit conversion, invalid measurements, bag editing,
-garment controls, fabric filters, mobile width, demo checkout and order download.
-It never uses a live payment or rendering service. To use installed Chrome, set
-`$env:BROWSER_CHANNEL='chrome'` before running, or set `$env:BROWSER_EXECUTABLE_PATH`
-to a specific browser executable. Optional screenshots can be saved to an existing
-directory with `$env:STUDIO_SCREENSHOT_DIR='C:\path\to\screenshots'`.
+The browser fitting tests require Playwright and installed Edge. They serve an
+isolated local page, block external requests, and check nine outfit/angle
+combinations, seat coverage, trouser underlays, a closed three-piece jacket,
+slim/tailored/relaxed waist widths, neck preservation and 360–1440px screens.
+They also ensure the face picker sits below the model instead of covering shoes.
+Use `BROWSER_EXECUTABLE_PATH` for a specific browser executable, or
+`BROWSER_CHANNEL` for a Playwright browser channel.
 
-For a visual garment matrix, run `node tests/visual-suit.cjs` with the same
-browser settings. It captures 18 native previews: jacket/two-piece/three-piece
-in front, inside and back views; waistcoat front/back; white/midnight shirts
-with all three collars; and a shirt-with-jacket combination. It also captures
-the mobile page. Output goes to `STUDIO_SCREENSHOT_DIR`, or
-`form-atelier-suit-qa` under the system temporary directory. Inspect these
-images visually; runtime checks alone cannot establish garment realism.
-Set `STUDIO_QA_FABRIC` to an exact catalogue name to repeat the matrix with a
-different cloth; the default is `Blue Rough Linen`.
+`tests/studio.test.cjs` and `tests/visual-suit.cjs` target the earlier Form Atelier
+interface, including shirt controls removed by the later SuitCraft update.
+Use the current command above for this interface. Automated checks do not replace
+visual inspection of the garment photographs or establish physical fit accuracy.
 
 ## Data and integration boundaries
 

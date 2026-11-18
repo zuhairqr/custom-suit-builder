@@ -6,17 +6,17 @@
 
 const lapels = [
   // 0: Classic Notch Lapel (standard width, moderate point)
-  'M424 321 Q399 362 358 407 L337 439 L372 463 L341 470 Q394 597 512 720 Q457 534 424 321Z',
+  'M420 380 Q402 425 370 462 L346 490 L380 507 L350 516 Q414 631 512 720 Q469 535 420 380Z',
   // 1: Wide Notch Lapel
-  'M424 321 Q398 368 341 406 L311 446 L363 470 L314 482 Q385 613 512 720 Q457 534 424 321Z',
+  'M420 380 Q398 425 351 462 L320 490 L365 510 L321 523 Q402 638 512 720 Q469 535 420 380Z',
   // 2: Peak Lapel (sharp point, pronounced)
-  'M424 321 Q394 372 344 419 L372 461 L302 442 Q370 602 512 720 Q460 534 424 321Z',
+  'M420 380 Q402 426 369 463 L385 503 L321 478 Q391 630 512 720 Q469 535 420 380Z',
   // 3: Wide Peak Lapel
-  'M424 321 Q390 372 332 420 L368 459 L264 426 Q355 612 512 720 Q460 534 424 321Z',
+  'M420 380 Q398 426 351 463 L376 509 L287 468 Q378 638 512 720 Q469 535 420 380Z',
   // 4: Shawl Lapel (curved, rounded collar)
-  'M424 321 Q363 378 363 457 Q367 588 512 720 Q461 537 424 321Z',
+  'M420 380 Q374 438 365 515 Q386 630 512 720 Q469 535 420 380Z',
   // 5: Shawl Lapel (butterfly style)
-  'M424 321 C374 351 319 395 333 468 C345 556 405 650 512 720 Q456 537 424 321Z',
+  'M420 380 C385 418 340 465 345 531 C363 617 422 671 512 720 Q469 535 420 380Z',
   // 6: Narrow Notch (slim profile)
   'M424 321 L352 415 L380 450 L317 472 Q386 511 412 599 Q454 673 512 720 Q460 534 424 321Z',
   // 7: High-gorge Notch (tall gorge line)
@@ -364,6 +364,25 @@ function paintFrontDetails(ctx, design, split, open = false) {
     lapelDepth.addColorStop(1, '#00000008');
     ctx.fillStyle = lapelDepth;
     ctx.fill(new Path2D(lapelPath));
+
+    if (lapel <= 3) {
+      // The upper collar is a turned-over piece, joined to the lapel at the
+      // gorge. Give it a roll and seam instead of one uninterrupted flat strip.
+      ctx.save();
+      ctx.clip(new Path2D(lapelPath));
+      const collarRoll = ctx.createLinearGradient(365, 428, 462, 487);
+      collarRoll.addColorStop(0, '#171f2a32');
+      collarRoll.addColorStop(.48, '#ffffff15');
+      collarRoll.addColorStop(1, '#0a152933');
+      ctx.fillStyle = collarRoll;
+      ctx.fill(new Path2D('M420 380Q399 428 360 470L384 512L462 527Q442 445 420 380Z'));
+      const gorge = ['M380 507Q414 514 456 518', 'M365 510Q408 517 456 518',
+        'M385 503Q420 513 456 518', 'M376 509Q416 517 456 518'][lapel];
+      ink(ctx, gorge, '#12223855', 1.7);
+      ctx.translate(0, 2);
+      ink(ctx, gorge, '#ffffff20', 1);
+      ctx.restore();
+    }
 
     const edge = {
       5: ['#e3d3ae', 5, []],

@@ -611,3 +611,9 @@ dialog::backdrop { background: #000a; }
   #studio .order-bar { flex-wrap: wrap; }
   #studio .order-actions { margin-inline-start: auto; }
 }
+
+/* Face controls belong below the garment, so full-body shoes stay visible. */
+#studio .visual-foot { flex-wrap: wrap; align-items: center; }
+#studio .visual-foot .studio-faces { position: static; transform: none; display: flex; gap: 5px; flex-shrink: 0; }
+#studio .visual-foot .studio-faces[hidden] { display: none; }
+#studio .visual-foot .studio-faces button { width: 28px; min-height: 0; padding: 1px; border-radius: 5px; }
