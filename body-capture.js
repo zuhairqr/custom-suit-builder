@@ -30,6 +30,7 @@ function installBodyCapture(onChange) {
   const indicator = get('body-indicator');
   const countdown = get('body-countdown');
   const start = get('body-start');
+  const stopButton = get('body-stop');
   const switchCamera = get('body-switch');
   const manual = get('body-manual');
   const retake = get('body-retake');
@@ -71,6 +72,7 @@ function installBodyCapture(onChange) {
     manual.disabled = !video.videoWidth || next === 'camera-ready';
     switchCamera.hidden = !active || switchCamera.dataset.available !== 'true';
     start.hidden = active || next === 'ready';
+    stopButton.hidden = !active && next !== 'starting';
     start.disabled = next === 'starting' || next === 'validating';
     file.disabled = next === 'starting' || next === 'validating';
     retake.hidden = next !== 'ready';
@@ -183,7 +185,7 @@ function installBodyCapture(onChange) {
       await video.play();
       if (request !== epoch) return;
       stage.style.setProperty('--body-video-aspect', video.videoWidth / video.videoHeight);
-      navigator.mediaDevices.enumerateDevices().then((devices) => {
+      navigator.mediaDevices.enumerateDevices?.().then((devices) => {
         if (request !== epoch) return;
         switchCamera.dataset.available = String(devices.filter(({kind}) => kind === 'videoinput').length > 1);
         updateState(phase);
@@ -196,10 +198,10 @@ function installBodyCapture(onChange) {
       schedule(request, 0);
     } catch (error) {
       if (request !== epoch) return;
+      const cameraStarted = Boolean(stream);
       stop();
       updateState('idle');
-      announce(error.name === 'NotAllowedError' ? 'Camera permission was declined. Allow it in the browser or choose a photo.'
-        : 'The camera or pose detector could not start. Check the connection or try again.');
+      announce(cameraStarted ? 'The camera or pose detector could not start. Check the connection and try again.' : cameraFailureMessage(error));
     }
   }
 
@@ -259,6 +261,11 @@ function installBodyCapture(onChange) {
     dialog.showModal();
   });
   start.addEventListener('click', () => openCamera());
+  stopButton.addEventListener('click', () => {
+    stop();
+    updateState('idle');
+    announce('Camera stopped. Start it again or choose a full-body photo.');
+  });
   retake.addEventListener('click', () => openCamera());
   download.addEventListener('click', () => { if (draft) downloadBodyFrame(draft.photo); });
   switchCamera.addEventListener('click', async () => {

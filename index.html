@@ -27,11 +27,11 @@
   <script src="cloth-samples.js?v=suitcraft-20261118" defer></script>
   <script src="fabric-scans.js?v=suitcraft-20261118" defer></script>
   <script src="fabric-renderer.js?v=suitcraft-fit-20261118" defer></script>
-  <script src="face-camera.js?v=suitcraft-20261118" defer></script>
+  <script src="face-camera.js?v=camera-lifecycle-20261118" defer></script>
   <script src="full-suit.js?v=suitcraft-20261118" defer></script>
   <script src="size-passport.js?v=suitcraft-20261118" defer></script>
   <script src="body-pose.js?v=suitcraft-20261118" defer></script>
-  <script src="body-capture.js?v=suitcraft-20261118" defer></script>
+  <script src="body-capture.js?v=camera-lifecycle-20261118" defer></script>
   <script src="body-try-on.js?v=suitcraft-fit-20261118" defer></script>
   <script src="studio-model-image.js?v=suitcraft-20261118" defer></script>
   <script src="studio-face-sheet.js?v=suitcraft-20261118" defer></script>
@@ -285,6 +285,7 @@
     <p class="body-intro">Face the camera with your arms relaxed and both feet visible. Hold still when the guide locks and it will take the photo automatically.</p>
     <div class="body-controls">
       <button id="body-start" class="primary" type="button">Start camera</button>
+      <button id="body-stop" class="secondary" type="button" hidden>Stop camera</button>
       <button id="body-switch" class="secondary" type="button" hidden>Switch camera</button>
       <button id="body-manual" class="secondary" type="button" hidden disabled>Capture now</button>
       <label class="secondary photo-picker">Choose full-body photo<input id="body-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
@@ -312,6 +313,7 @@
     <p class="face-note">Align your face with the oval, then capture and adjust. Your photo stays in this tab until you remove it or leave the page.</p>
     <div class="face-actions">
       <button id="enable-camera" class="secondary" type="button">Enable camera</button>
+      <button id="stop-face-camera" class="secondary" type="button" hidden>Stop camera</button>
       <button id="capture-face" class="primary" type="button" hidden disabled>Capture face</button>
       <label class="secondary photo-picker">Choose photo<input id="face-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
     </div>

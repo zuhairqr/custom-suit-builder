@@ -3,6 +3,14 @@
 const faceState = {image: null, version: 0};
 const faceSize = {width: 224, height: 304};
 
+function cameraFailureMessage(error) {
+  if (['NotAllowedError', 'SecurityError'].includes(error?.name)) return 'Camera permission is off. Allow it in the browser or choose a photo.';
+  if (['NotFoundError', 'DevicesNotFoundError'].includes(error?.name)) return 'No camera was found. Connect a camera or choose a photo.';
+  if (['NotReadableError', 'TrackStartError'].includes(error?.name)) return 'The camera is busy or unavailable. Close other camera apps, then try again or choose a photo.';
+  if (error?.name === 'OverconstrainedError') return 'This camera does not support the requested settings. Choose another camera or a photo.';
+  return 'The camera could not start. Check the device or choose a photo.';
+}
+
 function drawFaceTexture(canvas, photo, alignment) {
   const ctx = canvas.getContext('2d');
   const {width, height} = canvas;
@@ -36,6 +44,7 @@ function installFaceCamera(onChange) {
   const video = element('face-video');
   const enable = element('enable-camera');
   const capture = element('capture-face');
+  const stop = element('stop-face-camera');
   const apply = element('apply-face');
   const remove = element('remove-face');
   const file = element('face-file');
@@ -58,6 +67,7 @@ function installFaceCamera(onChange) {
     capture.hidden = true;
     capture.disabled = true;
     enable.disabled = false;
+    stop.hidden = true;
   }
 
   function alignment() {
@@ -87,6 +97,7 @@ function installFaceCamera(onChange) {
     stopCamera();
     const request = generation;
     enable.disabled = true;
+    stop.hidden = false;
     status.textContent = 'Waiting for camera permission…';
     try {
       const granted = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user', width: {ideal: 1280}}, audio: false});
@@ -95,6 +106,11 @@ function installFaceCamera(onChange) {
         return;
       }
       stream = granted;
+      for (const track of stream.getVideoTracks()) track.addEventListener('ended', () => {
+        if (request !== generation) return;
+        stopCamera();
+        status.textContent = 'The camera disconnected. Restart it or choose a photo.';
+      }, {once: true});
       video.srcObject = stream;
       element('camera-stage').hidden = false;
       capture.hidden = false;
@@ -105,10 +121,17 @@ function installFaceCamera(onChange) {
     } catch (error) {
       if (request !== generation) return;
       stopCamera();
-      status.textContent = error.name === 'NotAllowedError'
-        ? 'Camera permission is off. Allow it in the browser or choose a photo.'
-        : 'The camera could not start. Check the device or choose a photo.';
+      status.textContent = cameraFailureMessage(error);
     }
+  });
+  stop.addEventListener('click', () => {
+    stopCamera();
+    status.textContent = 'Camera stopped. Start it again or choose a photo.';
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden || !dialog.open || (!stream && !enable.disabled)) return;
+    stopCamera();
+    status.textContent = 'Camera paused while this tab was in the background. Start it again to continue.';
   });
 
   capture.addEventListener('click', () => {

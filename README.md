@@ -46,7 +46,7 @@ HTTPS and browser permission.
 Run the current workflow, try-on and browser fitting checks with Node.js 20+:
 
 ```powershell
-node --test studio-workflow.test.cjs try-on.test.cjs tests/studio-fitting.test.cjs
+node --test studio-workflow.test.cjs try-on.test.cjs tests/studio-fitting.test.cjs tests/camera.test.cjs
 ```
 
 The browser fitting tests require Playwright and installed Edge. They serve an
@@ -56,6 +56,20 @@ slim/tailored/relaxed waist widths, neck preservation and 360–1440px screens.
 They also ensure the face picker sits below the model instead of covering shoes.
 Use `BROWSER_EXECUTABLE_PATH` for a specific browser executable, or
 `BROWSER_CHANNEL` for a Playwright browser channel.
+
+Camera tests use the browser's native synthetic camera, not your physical webcam.
+They cover capture/apply/remove, retake, stop/restart, device errors, disconnects,
+backgrounding, late permissions, photo uploads and mobile dialog sizing. Body
+capture UI tests use fixture landmarks; the pose/quality algorithms are checked
+separately. Set `STUDIO_SCREENSHOT_DIR` to save camera test screenshots.
+Both camera dialogs offer Stop camera, including while permission is pending.
+Face capture also releases the camera when the tab goes into the background.
+
+An optional online smoke check, `node tests/pose-model-smoke.cjs`, loads the actual
+MediaPipe model and validates the built-in studio photograph with framing margins.
+It downloads the public model/runtime; it does not send the photograph anywhere.
+Physical webcam permissions, image quality and positioning still need a live
+device check and are not established by the synthetic-camera tests.
 
 `tests/studio.test.cjs` and `tests/visual-suit.cjs` target the earlier Form Atelier
 interface, including shirt controls removed by the later SuitCraft update.
