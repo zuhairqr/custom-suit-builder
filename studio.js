@@ -2,6 +2,7 @@
 
 const get = (id) => document.getElementById(id);
 const storageKey = 'form-atelier-v1';
+const receiptKey = 'form-atelier-demo-order-v1';
 const money = (value) => new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', maximumFractionDigits: 0}).format(value);
 const configurationPrice = (configuration) => outfits[configuration.outfit].price + fabrics[configuration.fabric].surcharge;
 
@@ -47,7 +48,8 @@ let angle = 'front';
 let piece = 'jacket';
 let jacketHidden = false;
 let waistcoatHidden = false;
-let shirtWithJacket = false;
+let three3DRenderer = null;
+let threePreviewAngle = null;
 let modelPreference = saved.modelPreference === 'mannequin' ? 'mannequin' : 'studio';
 let studioFaceId = studioFaces.some(({id}) => id === saved.studioFaceId) ? saved.studioFaceId : 'original';
 let skinTone = Number.isInteger(saved.skinTone) && mannequinTones[saved.skinTone] ? saved.skinTone : 0;
@@ -55,11 +57,18 @@ let split = true;
 let zoomed = false;
 let zoomFocus = 53;
 let lookDetail = '';
-let receipt;
+let previewDetailTrigger = null;
+let receipt = readSessionReceipt();
 let fabricPage = 0;
 const fabricsPerPage = 12;
 const failedPhotos = new Set();
 const loadingPhotos = new Set();
+const paintedDetailThumbnails = new WeakMap();
+const previewDetailSets = {
+  jacket: ['lapel', 'closure', 'pocket'],
+  trousers: ['trouserPleats', 'trouserClosure', 'trouserPocket'],
+  waistcoat: ['vestNeck', 'vestClosure', 'vestPocket'],
+};
 const photoSources = {
   front: frontMannequin, inside: insideMannequin, back: backMannequin, trousers: trousersMannequin, waistcoat: waistcoatMannequin,
   trousersBack: trousersBackMannequin, waistcoatBack: waistcoatBackMannequin,
@@ -70,8 +79,10 @@ const collectionCodes = new Set(collectionLooks.map(({fabric}) => fabric));
 function save() {
   try {
     localStorage.setItem(storageKey, JSON.stringify({design, bag, fit, fitUnit, skinTone, modelPreference, studioFaceId}));
+    return true;
   } catch {
     // The current tab can still hold the configuration when storage is disabled.
+    return false;
   }
 }
 
@@ -96,7 +107,6 @@ function fabricTraits(fabric) {
 
 function mountSwatches() {
   const [source, material, color, pattern, season, upgrade] = fabricFacets.map(({value}) => value);
-  for (const button of document.querySelectorAll('[data-season]')) button.setAttribute('aria-pressed', button.dataset.season === season);
   const activeCount = fabricFacets.filter(({value}) => value !== 'all').length;
   get('fabric-filter-count').textContent = activeCount ? `(${activeCount})` : '';
   const terms = get('fabric-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -105,7 +115,7 @@ function mountSwatches() {
     const inSource = source === 'all' || (source === 'scan' && photographed) || (source === 'digital' && !photographed) ||
       (source === 'collection' && collectionCodes.has(fabric.code));
     const priceBand = fabric.surcharge === 0 ? 'included' : fabric.surcharge <= 25 ? 'mid' : 'premium';
-    const label = `${fabric.name} ${fabric.material} ${fabric.code} ${traits.color} ${traits.pattern} ${traits.season}`.toLowerCase();
+    const label = `${fabric.name} ${fabric.material} ${fabric.code} ${fabric.weave} ${traits.color} ${traits.pattern} ${traits.season}`.toLowerCase();
     return inSource && (material === 'all' || fabric.material.toLowerCase().includes(material)) &&
       (color === 'all' || color === traits.color) && (pattern === 'all' || pattern === traits.pattern) &&
       (season === 'all' || season === traits.season) && (upgrade === 'all' || upgrade === priceBand) &&
@@ -151,13 +161,13 @@ function mountStyles() {
 
 function syncPieceControls() {
   const outfit = outfits[design.outfit];
-  if (!outfit.pieces.includes(piece) && !(piece === 'shirt' && showsStudioModel())) piece = 'jacket';
+  if (!outfit.pieces.includes(piece)) piece = 'jacket';
   get('outfit').value = design.outfit;
   for (const button of get('piece-tabs').querySelectorAll('[data-piece]')) {
-    button.hidden = button.dataset.piece === 'shirt' ? !showsStudioModel() : !outfit.pieces.includes(button.dataset.piece);
+    button.hidden = !outfit.pieces.includes(button.dataset.piece);
     button.setAttribute('aria-pressed', button.dataset.piece === piece);
   }
-  get('tailoring-title').textContent = {jacket: 'Jacket details', trousers: 'Trouser details', waistcoat: 'Waistcoat details', shirt: 'Shirt styling'}[piece];
+  get('tailoring-title').textContent = {jacket: 'Jacket details', trousers: 'Trouser details', waistcoat: 'Waistcoat details'}[piece];
   get('open-necklines').hidden = piece !== 'jacket';
   const active = Object.entries(styleGroups).filter(([key]) => stylePiece(key) === piece);
   const groupIds = new Set(active.map(([key]) => 'group-' + key));
@@ -166,9 +176,28 @@ function syncPieceControls() {
   get('style-jump').innerHTML = '<option value="">Jump to a detail</option>' + active.map(([key, [label]]) => `<option value="${key}">${label}</option>`).join('');
   get('style-groups').scrollTop = 0;
   get('tailoring-title').closest('.tailoring').scrollTop = 0;
-  get('preview-angles').hidden = design.outfit !== 2 && !['jacket', 'shirt'].includes(piece);
-  get('preview-angles').querySelector('[data-view="inside"]').hidden = piece === 'shirt';
+  get('preview-angles').hidden = design.outfit !== 2 && piece !== 'jacket';
   get('compare').hidden = design.outfit > 0 || piece !== 'jacket';
+  const quickOptions = get('studio-quick-options');
+  if (quickOptions) quickOptions.hidden = piece !== 'jacket';
+}
+
+function mountStudioQuickOptions() {
+  const container = get('studio-quick-options');
+  if (!container) return;
+  const groups = [
+    ['lapel', 'Jacket style', [[2, 'Peak'], [0, 'Notch'], [4, 'Shawl']]],
+    ['closure', 'Button stance', [[4, 'Double'], [0, 'Single'], [5, 'Three']]],
+    ['pocket', 'Pocket style', [[0, 'Flap'], [1, 'Welt'], [2, 'Patch']]],
+  ];
+  container.innerHTML = groups.map(([key, title, choices]) => `
+    <section class="studio-quick-group">
+      <h3>${title}</h3>
+      <div class="studio-quick-choices">${choices.map(([index, label]) => `
+        <button class="studio-quick-option" type="button" data-style="${key}" data-choice="${index}" aria-pressed="false">
+          <canvas width="144" height="86" data-option-preview aria-hidden="true" hidden></canvas>${optionIcon(key, index)}<span>${label}</span>
+        </button>`).join('')}</div>
+    </section>`).join('');
 }
 
 function description(config) {
@@ -198,7 +227,7 @@ function showsStudioModel() {
 }
 
 function studioModelView() {
-  if (piece === 'shirt') return shirtWithJacket ? 'jacket' : 'shirt';
+  if (piece === 'waistcoat') return waistcoatHidden ? 'shirt' : 'waistcoat';
   if (design.outfit !== 2 || !jacketHidden) return 'jacket';
   return waistcoatHidden ? 'shirt' : 'waistcoat';
 }
@@ -218,6 +247,7 @@ function ensurePhoto(view) {
   loadGarmentPhoto(view, photoSources[view]).then(() => {
     if (previewAssets().includes(view) || constructionDetails[lookDetail]?.[0] === view ||
         (view === 'inside' && (piece === 'waistcoat' || design.outfit === 2))) renderPreview();
+    else paintPreviewThumbnails();
     if (['front', 'trousers', 'waistcoat'].includes(view)) paintBagPreviews();
   }, () => {
     failedPhotos.add(view);
@@ -225,18 +255,87 @@ function ensurePhoto(view) {
   });
 }
 
-function renderPreview() {
-  if (piece === 'shirt' && !showsStudioModel()) {
-    piece = 'jacket';
-    syncPieceControls();
+function shows3DPreview() {
+  return Boolean(three3DRenderer && get('three-container').style.display === 'block');
+}
+
+function syncPreviewAngles() {
+  for (const button of document.querySelectorAll('[data-view]')) {
+    button.setAttribute('aria-pressed', button.dataset.view === angle);
   }
-  get('piece-tabs').querySelector('[data-piece="shirt"]').hidden = !showsStudioModel();
+}
+
+function paintPreviewThumbnails() {
+  for (const canvas of document.querySelectorAll('[data-option-preview]')) {
+    const {style, choice} = canvas.parentElement.dataset;
+    const optionDesign = {...design, [style]: Number(choice)};
+    const configuration = JSON.stringify([optionDesign, clothAppearance(optionDesign)]);
+    if (paintedDetailThumbnails.get(canvas) === configuration) continue;
+    canvas.hidden = !paintConstructionFocus(canvas, style, optionDesign, false);
+    if (canvas.hidden) ensurePhoto(constructionDetails[style][0]);
+    else paintedDetailThumbnails.set(canvas, configuration);
+  }
+  for (const canvas of document.querySelectorAll('[data-angle-thumbnail]')) {
+    if (get('preview-angles').hidden) break;
+    const view = canvas.dataset.angleThumbnail;
+    canvas.hidden = !paintGarmentPhoto(canvas, design, view, false, {thumbnail: true, skinTone});
+    if (canvas.hidden) ensurePhoto(view);
+  }
+
+  const callouts = get('preview-callouts');
+  if (!callouts) return;
+  const detailPiece = piece === 'jacket' && jacketHidden && !waistcoatHidden ? 'waistcoat' : piece;
+  callouts.hidden = detailPiece === 'jacket' && jacketHidden;
+  if (callouts.hidden) return;
+  const buttons = callouts.querySelectorAll('[data-view-detail]');
+  if (!buttons.length) return;
+  const details = previewDetailSets[detailPiece];
+  callouts.setAttribute('aria-label', `${pieces[detailPiece]} close-ups`);
+  const configuration = JSON.stringify([design, clothAppearance(design)]);
+  for (const [index, button] of [...buttons].entries()) {
+    const detail = details[index];
+    button.dataset.viewDetail = detail;
+    const canvas = button.querySelector('[data-detail-thumbnail]');
+    const label = button.querySelector('[data-detail-label]');
+    if (label) label.textContent = styleGroups[detail][1][design[detail]];
+    button.setAttribute('aria-pressed', String(lookDetail === detail));
+    const previewKey = `${detail}:${configuration}`;
+    if (!canvas || paintedDetailThumbnails.get(canvas) === previewKey) continue;
+    canvas.hidden = !paintConstructionFocus(canvas, detail, design, false);
+    if (canvas.hidden) ensurePhoto(constructionDetails[detail][0]);
+    else paintedDetailThumbnails.set(canvas, previewKey);
+  }
+}
+
+function renderPreview() {
   const model = get('fabric-model');
+  if (shows3DPreview() && (angle === 'inside' || lookDetail || piece !== 'jacket')) {
+    set3DPreviewVisible(false);
+    showStudioAction(angle === 'inside' ? 'Inside view uses the 2D preview.' : 'Construction details use the 2D preview.');
+  }
+  if (shows3DPreview()) {
+    get('preview-mode').innerHTML = `<i></i> 3D JACKET / ${angle.toUpperCase()}`;
+    get('photo-notice').hidden = true;
+    get('look-detail').hidden = true;
+    get('studio-faces').hidden = true;
+    const stage = get('model');
+    stage.classList.toggle('zoomed', false);
+    stage.classList.toggle('garment-focus', false);
+    stage.closest('.model-stage').classList.toggle('detail-active', false);
+    if (threePreviewAngle !== angle) {
+      three3DRenderer.setCameraPreset(angle);
+      threePreviewAngle = angle;
+    }
+    syncPreviewAngles();
+    paintPreviewThumbnails();
+    return;
+  }
   const personal = showsBodyPhoto();
   const studio = showsStudioModel();
   const garmentView = studioModelView();
   const view = personal ? 'front' : studio ? angle : activePhoto();
   const full = personal || studio || showsFullLook();
+  const garmentFocus = !personal && full && piece !== 'trousers' && angle !== 'inside';
   const hideJacket = design.outfit === 2 && jacketHidden;
   if (studio) {
     loadStudioModel('front', () => {
@@ -266,7 +365,11 @@ function renderPreview() {
   const mode = personal ? 'INSTANT FIT / FRONT' : studio ? 'STUDIO MODEL / ' + studioLabel.toUpperCase() : full ? 'FULL LOOK / ' + view.toUpperCase()
     : piece === 'jacket' ? angle.toUpperCase() + ' VIEW' : pieces[piece].toUpperCase();
   get('preview-mode').innerHTML = `<i></i> ${mode}`;
-  get('model').classList.toggle('zoomed', zoomed);
+  const stage = model.closest('.model-stage');
+  stage.setAttribute('data-preview-angle', angle);
+  stage.setAttribute('data-preview-piece', piece);
+  get('model').classList.toggle('zoomed', garmentFocus ? !zoomed : zoomed);
+  get('model').classList.toggle('garment-focus', garmentFocus);
   get('model').classList.toggle('full-look', full);
   get('model').classList.toggle('personal-look', personal);
   get('model').classList.toggle('studio-look', studio);
@@ -287,21 +390,18 @@ function renderPreview() {
   const facePicker = get('studio-faces');
   facePicker.hidden = !(studio && photographic && studioPortraits && !detailVisible);
   for (const button of facePicker.children) button.setAttribute('aria-pressed', String(button.dataset.studioFace === studioFaceId));
-  get('model').closest('.model-stage').classList.toggle('detail-active', detailVisible);
+  stage.classList.toggle('detail-active', detailVisible);
   if (detailVisible) {
     const [label, options] = styleGroups[lookDetail];
     get('look-detail-mode').textContent = cutawayNames[lookDetail] || 'Construction close-up';
     get('look-detail-label').textContent = label;
     get('look-detail-choice').textContent = options[design[lookDetail]];
-    get('close-look-detail').textContent = full ? 'Full Body' : 'Full view';
+    get('close-look-detail').textContent = 'Back to preview';
   }
-  get('toggle-jacket').hidden = design.outfit !== 2 || piece === 'shirt';
+  get('toggle-jacket').hidden = design.outfit !== 2;
   get('toggle-jacket').textContent = hideJacket ? 'Show jacket' : 'Hide jacket';
-  get('toggle-waistcoat').hidden = !(studio && hideJacket) || piece === 'shirt';
+  get('toggle-waistcoat').hidden = !(studio && hideJacket);
   get('toggle-waistcoat').textContent = waistcoatHidden ? 'Show waistcoat' : 'Hide waistcoat';
-  get('shirt-preview-toggle').hidden = piece !== 'shirt';
-  get('shirt-preview-toggle').textContent = shirtWithJacket ? 'Shirt only' : 'Show jacket';
-  get('shirt-preview-toggle').setAttribute('aria-pressed', shirtWithJacket);
   get('preview-model-control').hidden = personal || Boolean(faceState.image);
   get('skin-tone-control').hidden = personal || studio;
   get('open-body').textContent = tryOnSession.capture ? 'Manage try-on photo' : 'Full-body try-on';
@@ -312,28 +412,16 @@ function renderPreview() {
   get('compare').disabled = full || view !== 'front';
   get('compare').setAttribute('aria-pressed', !full && split && view === 'front');
   get('zoom').setAttribute('aria-pressed', zoomed);
-  const framing = studio ? (zoomed ? 'Full body' : 'Upper body') : (zoomed ? 'Reset preview zoom' : 'Zoom preview');
-  get('zoom').textContent = studio ? framing : zoomed ? '−' : '+';
+  const framing = garmentFocus ? (zoomed ? 'Jacket focus' : 'Full body') : (zoomed ? 'Reset preview zoom' : 'Zoom preview');
+  get('zoom').textContent = garmentFocus ? framing : zoomed ? '-' : '+';
   get('zoom').setAttribute('aria-label', framing);
-  for (const button of document.querySelectorAll('[data-view]')) {
-    button.setAttribute('aria-pressed', button.dataset.view === angle);
-  }
+  syncPreviewAngles();
+  paintPreviewThumbnails();
 }
 
-function focusConstruction(key) {
-  if (key === 'silhouette') {
-    lookDetail = '';
-    zoomed = false;
-    return;
-  }
-  if (stylePiece(key) === 'shirt') {
-    if (key === 'shirtCuff') shirtWithJacket = true;
-    lookDetail = '';
-    angle = 'front';
-    zoomed = true;
-    return;
-  }
+function focusConstruction(key, trigger = null) {
   lookDetail = key;
+  previewDetailTrigger = trigger;
   zoomed = false;
   const view = constructionDetails[key]?.[0];
   if (stylePiece(key) === 'jacket') jacketHidden = false;
@@ -355,12 +443,9 @@ function renderDesign() {
   if (get('monogram-text').value !== design.monogramText) get('monogram-text').value = design.monogramText;
   if (design.breast === 2) get('choice-square').textContent = 'Requires a breast pocket';
   for (const button of document.querySelectorAll('[data-style]')) {
-    const selected = button.dataset.style === 'shirtTie' && design.shirtCollar === 2 ? 2 : design[button.dataset.style];
-    button.setAttribute('aria-pressed', selected === Number(button.dataset.choice));
-    button.disabled = (button.dataset.style === 'square' && design.breast === 2) ||
-      (button.dataset.style === 'shirtTie' && design.shirtCollar === 2 && Number(button.dataset.choice) !== 2);
+    button.setAttribute('aria-pressed', design[button.dataset.style] === Number(button.dataset.choice));
+    button.disabled = button.dataset.style === 'square' && design.breast === 2;
   }
-  if (design.shirtCollar === 2) get('choice-shirtTie').textContent = 'No tie with band collar';
   renderPreview();
   get('design-summary').textContent = `${outfits[design.outfit].name} · ${description(design)}`;
   get('price').textContent = money(configurationPrice(design));
@@ -433,6 +518,7 @@ function route() {
   if (page === 'checkout') {
     get('review').innerHTML = '<h2>Order specifications</h2>' + orderSpecification(bag.map((item) => orderItem(item, fitUnit)), orderTotal(), fit);
   }
+  if (page === 'complete') renderReceipt();
   for (const id of pageIds) get(id).hidden = id !== page;
   for (const link of document.querySelectorAll('.top nav a, .bag')) {
     if (link.hash === '#' + page) link.setAttribute('aria-current', 'step');
@@ -445,18 +531,6 @@ function filterFabrics() {
   fabricPage = 0;
   mountSwatches();
 }
-
-function showStudioPanel(panel) {
-  get('workbench').dataset.mobilePanel = panel;
-  for (const button of get('mobile-panel-tabs').querySelectorAll('[data-panel]')) {
-    button.setAttribute('aria-pressed', button.dataset.panel === panel);
-  }
-}
-
-get('mobile-panel-tabs').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-panel]');
-  if (button) showStudioPanel(button.dataset.panel);
-});
 
 get('fabric-facets').addEventListener('change', filterFabrics);
 get('clear-fabric-filters').addEventListener('click', () => {
@@ -481,21 +555,88 @@ get('outfit').addEventListener('change', (event) => {
   save();
 });
 
-get('piece-tabs').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-piece]');
-  if (!button) return;
-  piece = button.dataset.piece;
-  showStudioPanel('tailoring');
-  if (piece === 'shirt') {
-    shirtWithJacket = false;
-    angle = 'front';
-  }
+function selectPiece(nextPiece) {
+  piece = nextPiece;
   lookDetail = '';
   if (design.outfit === 2 && piece !== 'jacket') angle = 'front';
-  zoomed = piece === 'shirt';
+  zoomed = false;
   zoomFocus = 53;
   syncPieceControls();
   renderPreview();
+}
+
+get('piece-tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-piece]');
+  if (button) selectPiece(button.dataset.piece);
+});
+
+function showStudioAction(message) {
+  const notice = get('studio-action-message') || get('status');
+  notice.textContent = message;
+}
+
+document.querySelector('.studio-rail')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-studio-panel]');
+  if (!button) return;
+  const panel = button.dataset.studioPanel;
+  for (const item of button.closest('.studio-rail').querySelectorAll('[data-studio-panel]')) {
+    item.setAttribute('aria-pressed', String(item === button));
+  }
+
+  showStudioAction('');
+  if (panel === 'fabric') {
+    get('fabric-search').focus();
+  } else if (panel === 'trousers' && !outfits[design.outfit].pieces.includes('trousers')) {
+    showStudioAction('Select a two-piece or three-piece suit to customize trousers.');
+    get('outfit').focus();
+  } else if (panel === 'jacket' || panel === 'trousers') {
+    selectPiece(panel);
+    const quickOption = get('studio-quick-options')?.querySelector('button');
+    if (panel === 'jacket' && quickOption) quickOption.focus();
+    else focusAdvancedStudioOptions();
+  } else if (panel === 'details') {
+    focusAdvancedStudioOptions();
+  } else if (panel === 'size') {
+    showStudioAction('Add the design to your bag to enter its Size Passport measurements.');
+    get('add').focus();
+  }
+});
+
+function focusAdvancedStudioOptions() {
+  const advanced = get('advanced-jacket-options');
+  if (advanced) advanced.open = true;
+  get('style-jump').focus();
+}
+
+get('save-design')?.addEventListener('click', () => {
+  showStudioAction(save()
+    ? 'Design saved on this device.'
+    : 'This browser could not save your design.');
+});
+
+get('apply-studio-look')?.addEventListener('click', () => {
+  if (showsBodyPhoto() || faceState.image) {
+    showStudioAction('Remove the try-on photo or custom face to use the studio model.');
+    return;
+  }
+  set3DPreviewVisible(false);
+  design = {...design, fabric: defaults.fabric, lapel: 2, lapelFinish: 0, closure: 4, pocket: 0};
+  modelPreference = 'studio';
+  studioFaceId = 'original';
+  get('preview-model').value = modelPreference;
+  piece = 'jacket';
+  angle = 'front';
+  jacketHidden = false;
+  waistcoatHidden = false;
+  split = false;
+  zoomed = false;
+  lookDetail = '';
+  previewDetailTrigger = null;
+  resetFabricSearch();
+  syncPieceControls();
+  renderDesign();
+  save();
+  showStudioAction('Navy studio look applied.');
 });
 
 get('swatches').addEventListener('click', (event) => {
@@ -507,20 +648,7 @@ get('swatches').addEventListener('click', (event) => {
   save();
 });
 
-get('style-groups').addEventListener('click', (event) => {
-  const summary = event.target.closest('summary');
-  if (summary) {
-    const group = summary.parentElement;
-    requestAnimationFrame(() => {
-      if (group.open && !group.hidden) {
-        focusConstruction(group.dataset.detail);
-        renderPreview();
-      }
-    });
-    return;
-  }
-  const option = event.target.closest('[data-style]');
-  if (!option) return;
+function selectStyle(option) {
   const {style, choice} = option.dataset;
   design[style] = Number(choice);
   if (style === 'vestCut') {
@@ -531,6 +659,30 @@ get('style-groups').addEventListener('click', (event) => {
   get('status').textContent = `${styleGroups[style][0]}, ${styleGroups[style][1][choice]}`;
   renderDesign();
   save();
+}
+
+get('style-groups').addEventListener('click', (event) => {
+  const summary = event.target.closest('summary');
+  if (summary) {
+    const group = summary.parentElement;
+    requestAnimationFrame(() => {
+      if (group.open && !group.hidden) {
+        focusConstruction(group.dataset.detail);
+        renderPreview();
+      } else if (lookDetail === group.dataset.detail) {
+        lookDetail = '';
+        renderPreview();
+      }
+    });
+    return;
+  }
+  const option = event.target.closest('[data-style]');
+  if (option) selectStyle(option);
+});
+
+get('studio-quick-options')?.addEventListener('click', (event) => {
+  const option = event.target.closest('[data-style]');
+  if (option) selectStyle(option);
 });
 
 get('style-groups').addEventListener('input', (event) => {
@@ -560,18 +712,29 @@ get('style-jump').addEventListener('change', (event) => {
 });
 
 document.querySelector('.angles').addEventListener('click', (event) => {
-  if (!event.target.matches('[data-view]')) return;
-  angle = event.target.dataset.view;
+  const button = event.target.closest('[data-view]');
+  if (!button) return;
+  angle = button.dataset.view;
   if (angle === 'inside' && !showsStudioModel()) jacketHidden = false;
   lookDetail = '';
   zoomed = false;
   zoomFocus = 53;
+
+  renderPreview();
+});
+
+get('preview-callouts')?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-view-detail]');
+  if (!button) return;
+  focusConstruction(button.dataset.viewDetail, button);
   renderPreview();
 });
 
 get('toggle-jacket').addEventListener('click', () => {
   jacketHidden = !jacketHidden;
   waistcoatHidden = false;
+  piece = jacketHidden ? 'waistcoat' : 'jacket';
+  syncPieceControls();
   if (angle === 'inside' && !showsStudioModel()) angle = 'front';
   lookDetail = '';
   renderPreview();
@@ -580,11 +743,6 @@ get('toggle-jacket').addEventListener('click', () => {
 get('toggle-waistcoat').addEventListener('click', () => {
   waistcoatHidden = !waistcoatHidden;
   lookDetail = '';
-  renderPreview();
-});
-
-get('shirt-preview-toggle').addEventListener('click', () => {
-  shirtWithJacket = !shirtWithJacket;
   renderPreview();
 });
 
@@ -618,6 +776,10 @@ get('compare').addEventListener('click', () => {
 });
 
 get('zoom').addEventListener('click', () => {
+  if (shows3DPreview()) {
+    three3DRenderer.toggleZoom();
+    return;
+  }
   lookDetail = '';
   zoomed = !zoomed;
   renderPreview();
@@ -625,9 +787,12 @@ get('zoom').addEventListener('click', () => {
 
 get('close-look-detail').addEventListener('click', () => {
   const detail = lookDetail;
+  const trigger = previewDetailTrigger?.dataset.viewDetail === detail
+    ? previewDetailTrigger : get('group-' + detail)?.querySelector('summary');
+  previewDetailTrigger = null;
   lookDetail = '';
   renderPreview();
-  get('group-' + detail)?.querySelector('summary').focus({preventScroll: true});
+  trigger?.focus({preventScroll: true});
 });
 
 get('reset').addEventListener('click', () => {
@@ -669,9 +834,6 @@ get('cart-lines').addEventListener('click', (event) => {
     piece = 'jacket';
     angle = 'front';
     split = false;
-    jacketHidden = false;
-    waistcoatHidden = false;
-    zoomed = false;
     zoomFocus = 53;
     resetFabricSearch();
     syncPieceControls();
@@ -686,13 +848,6 @@ get('passport-items').addEventListener('input', (event) => {
   save();
 });
 
-get('body-options').addEventListener('change', (event) => {
-  const {name, value} = event.target;
-  if (!fitGroups[name]?.[1].includes(value)) return;
-  fit[name] = value;
-  save();
-});
-
 get('passport-unit').addEventListener('change', (event) => {
   const invalid = [...get('passport-items').querySelectorAll('[data-measurement]')].find((input) =>
     input.validity.badInput || (input.value !== '' && !input.validity.valid));
@@ -701,16 +856,30 @@ get('passport-unit').addEventListener('change', (event) => {
     invalid.reportValidity();
     return;
   }
-  syncPassportInputs(get('passport-items'), bag, fitUnit);
   fitUnit = event.target.value;
   mountSizePassport(get('passport-items'), bag, fitUnit);
   save();
 });
 
+get('body-options').addEventListener('change', ({target}) => {
+  if (target.checked && fitGroups[target.name]?.[1].includes(target.value)) {
+    fit[target.name] = target.value;
+    save();
+  }
+});
+
 get('fit-form').addEventListener('submit', (event) => {
   event.preventDefault();
   fit = Object.fromEntries(new FormData(event.currentTarget));
-  syncPassportInputs(get('passport-items'), bag, fitUnit);
+  // Read any browser-filled values that did not dispatch an input event.
+  for (const input of get('passport-items').querySelectorAll('[data-measurement], [data-size-label]')) {
+    const {passportItem, passportPiece} = input.closest('[data-passport-piece]').dataset;
+    const entry = bag[Number(passportItem)].passport[passportPiece];
+    const key = input.dataset.measurement;
+    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], fitUnit)) {
+      storePassportInput(bag, input, fitUnit);
+    }
+  }
   save();
   if (sizePassportReady()) navigate('checkout');
 });
@@ -727,9 +896,37 @@ get('checkout-form').addEventListener('submit', (event) => {
     total: orderTotal(),
     items: bag.map((item) => orderItem(item, fitUnit)),
     fit: {...fit},
+    shipping: orderShipping(new FormData(event.currentTarget)),
   };
+  try {
+    sessionStorage.setItem(receiptKey, JSON.stringify(receipt));
+  } catch {
+    // The download remains available in the current page if storage is disabled.
+  }
+  event.currentTarget.reset();
+  bag = [];
+  save();
+  navigate('complete');
+});
+
+function readSessionReceipt() {
+  try {
+    const order = JSON.parse(sessionStorage.getItem(receiptKey));
+    const record = (value) => value && typeof value === 'object' && !Array.isArray(value);
+    if (!record(order) || typeof order.reference !== 'string' || !/^FA-[A-Z0-9]+$/.test(order.reference) ||
+        order.currency !== 'USD' || !Number.isFinite(order.total) || !record(order.fit) ||
+        !Array.isArray(order.items) || !order.items.length || !order.items.every((item) =>
+          record(item) && Number.isFinite(item.price) && Array.isArray(item.pieces) && item.pieces.every((part) =>
+            record(part) && record(part.fabric) && record(part.measurements) && record(part.construction)))) return undefined;
+    return order;
+  } catch {
+    return undefined;
+  }
+}
+
+function renderReceipt() {
   const confirmation = get('confirmation');
-  confirmation.innerHTML = `<div class="confirmation-header"><div><h2>${receipt.reference}</h2><p>Demo order prepared.</p></div>
+  confirmation.innerHTML = `<div class="confirmation-header"><div><h2>${orderEscape(receipt.reference)}</h2><p>Demo order prepared.</p></div>
     <button type="button" class="secondary" id="download">Download order (.json) ↓</button></div>
     ${orderSpecification(receipt.items, receipt.total, receipt.fit)}`;
   get('download').addEventListener('click', () => {
@@ -740,11 +937,7 @@ get('checkout-form').addEventListener('submit', (event) => {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
-  event.currentTarget.reset();
-  bag = [];
-  save();
-  navigate('complete');
-});
+}
 
 const collectionDialog = get('source-dialog');
 const collectionGrid = get('collection-looks');
@@ -759,7 +952,7 @@ function openCollections() {
           <p>${notes}</p>
           <div class="collection-actions">
             <button type="button" data-collection="${index}" aria-label="Apply ${title}">Apply look</button>
-            ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">Brand reference ↗</a>` : ''}
+            <a href="${url}" target="_blank" rel="noopener noreferrer">Brand reference ↗</a>
             ${guide ? `<a href="${guide[1]}" target="_blank" rel="noopener noreferrer">${guide[0]} ↗</a>` : ''}
           </div>
         </div>
@@ -770,7 +963,6 @@ function openCollections() {
 
 get('references').addEventListener('click', openCollections);
 get('open-collections').addEventListener('click', openCollections);
-get('open-studio-looks').addEventListener('click', openCollections);
 collectionGrid.addEventListener('click', (event) => {
   const button = event.target.closest('[data-collection]');
   if (!button) return;
@@ -846,29 +1038,25 @@ installBodyCapture((applied) => {
 });
 installStudioRender();
 installInstantFitExport();
-// Initialize 3D renderer (declared early to avoid temporal dead zone)
-let three3DRenderer = null;
-
 resetFabricSearch();
 mountStyles();
+mountStudioQuickOptions();
 syncPieceControls();
 mountFit();
 renderDesign();
 function init3DRenderer() {
-  if (typeof ThreeSuitRenderer !== 'undefined' && typeof window.THREE !== 'undefined' && !three3DRenderer) {
-    setTimeout(() => {
-      const container = get('three-container');
-      if (container) {
-        try {
-          three3DRenderer = new ThreeSuitRenderer('three-container');
-          window.three3DRenderer = three3DRenderer; // Expose for debugging
-          console.log('3D renderer initialized');
-          update3DRenderer(); // Sync with current design
-        } catch (e) {
-          console.warn('3D renderer failed:', e);
-        }
-      }
-    }, 100);
+  if (three3DRenderer) return true;
+  if (typeof ThreeSuitRenderer === 'undefined' || !window.THREE) return false;
+  try {
+    three3DRenderer = new ThreeSuitRenderer('three-container', sync3DZoom);
+    update3DRenderer();
+    return true;
+  } catch (error) {
+    three3DRenderer?.dispose();
+    three3DRenderer = null;
+    get('three-container').replaceChildren();
+    console.warn('3D renderer failed:', error);
+    return false;
   }
 }
 
@@ -881,8 +1069,11 @@ function update3DRenderer() {
     three3DRenderer.updateLapelStyle(design.lapel);
   }
 
-  // Update fabric color from fabric selection
-  if (three3DRenderer.updateFabricColor) {
+  // Update fabric texture (includes color)
+  if (three3DRenderer.updateFabricTexture) {
+    three3DRenderer.updateFabricTexture(design.fabric);
+  } else if (three3DRenderer.updateFabricColor) {
+    // Fallback to color-only if texture update not available
     const fabric = fabrics[design.fabric];
     if (fabric?.color) {
       three3DRenderer.updateFabricColor(fabric.color);
@@ -890,22 +1081,49 @@ function update3DRenderer() {
   }
 }
 
-// 3D rendering disabled - using 2D canvas only
-// get('toggle-3d')?.addEventListener('click', () => {
-//   const canvas = get('fabric-model');
-//   const threeDiv = get('three-container');
-//   if (threeDiv.style.display === 'none') {
-//     threeDiv.style.display = 'block';
-//     canvas.style.display = 'none';
-//     if (!three3DRenderer) init3DRenderer();
-//   } else {
-//     threeDiv.style.display = 'none';
-//     canvas.style.display = 'block';
-//   }
-// });
+function sync3DZoom(zoomed) {
+  if (!shows3DPreview()) return;
+  const button = get('zoom');
+  button.setAttribute('aria-pressed', zoomed);
+  button.textContent = zoomed ? '−' : '+';
+  button.setAttribute('aria-label', zoomed ? 'Reset 3D camera zoom' : 'Zoom 3D camera');
+}
 
-// 3D initialization disabled
-// window.addEventListener('load', init3DRenderer);
-// init3DRenderer();
+function set3DPreviewVisible(active) {
+  get('three-container').style.display = active ? 'block' : 'none';
+  get('fabric-model').style.display = active ? 'none' : '';
+  get('model').closest('.visual').classList.toggle('preview-3d', active);
+  const toggle = get('toggle-3d');
+  toggle.textContent = active ? '2D Preview' : '3D Jacket';
+  toggle.setAttribute('aria-pressed', String(active));
+  if (!active) {
+    threePreviewAngle = null;
+    three3DRenderer?.cancelCameraTransition();
+  }
+}
+
+get('toggle-3d')?.addEventListener('click', () => {
+  showStudioAction('');
+  if (shows3DPreview()) {
+    set3DPreviewVisible(false);
+  } else {
+    get('three-container').style.display = 'block';
+    if (!init3DRenderer()) {
+      set3DPreviewVisible(false);
+      get('status').textContent = '3D preview is unavailable. The 2D preview is ready.';
+      return;
+    }
+    if (angle === 'inside') angle = 'front';
+    lookDetail = '';
+    zoomed = false;
+    if (piece !== 'jacket') {
+      piece = 'jacket';
+      syncPieceControls();
+    }
+    set3DPreviewVisible(true);
+    three3DRenderer.onWindowResize();
+  }
+  renderPreview();
+});
 
 route();

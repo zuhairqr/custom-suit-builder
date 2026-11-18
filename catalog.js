@@ -105,12 +105,6 @@ const fabrics = featuredFabrics.concat(clothRecipes.flatMap(([pattern, fibre, fa
 
 const collectionLooks = [
   {
-    brand: 'FORM ATELIER · STUDIO ESSENTIALS', title: 'Studio Navy',
-    notes: 'Fine navy worsted wool, two-button closure, notch lapels and tonal buttons. A quiet studio look for inspecting drape and construction.',
-    image: 'assets/studio-navy-preview.jpg', media: 'Form Atelier photographic preview', fabric: 'FA-01-08',
-    cut: {outfit: 1, lapel: 0, closure: 1, button: 4, square: 1},
-  },
-  {
     brand: 'Suitsupply · Custom Made', title: 'Navy Herringbone Wool',
     notes: 'Fine herringbone with a two-button front and flap pockets in the studio look.',
     url: 'https://custommade.suitsupply.com/configurator',
@@ -194,10 +188,6 @@ const liningCollection = [
 const activeLinings = liningCollection.filter(([, color]) => color);
 
 const styleGroups = {
-  shirtColor: ['Shirt color', ['White', 'Sky blue', 'Ivory', 'Blush', 'Midnight']],
-  shirtCollar: ['Shirt collar', ['Classic point', 'Spread collar', 'Band collar']],
-  shirtCuff: ['Shirt cuffs', ['Standard reveal', 'Minimal reveal']],
-  shirtTie: ['Tie', ['Navy', 'Burgundy', 'No tie']],
   silhouette: ['Silhouette', ['Tailored', 'Relaxed', 'Slim']],
   lapel: ['Lapel style', [
     // Classic suit & tuxedo lapels (0-23)
@@ -279,14 +269,12 @@ const outfits = [
 const pieces = {jacket: 'Jacket', trousers: 'Trousers', waistcoat: 'Waistcoat (inner)'};
 
 function stylePiece(key) {
-  if (key.startsWith('shirt')) return 'shirt';
   if (key.startsWith('trouser')) return 'trousers';
   if (key.startsWith('vest')) return 'waistcoat';
   return 'jacket';
 }
 
 const defaults = {
-  shirtColor: 0, shirtCollar: 0, shirtCuff: 0, shirtTie: 0,
   outfit: 0, fabric: 0, silhouette: 0, lapel: 2, lapelFinish: 0, closure: 4, button: 0,
   breast: 0, pocket: 0, cuff: 0, stitching: 0, square: 0, vent: 0, lining: 0, inner: 0,
   ticket: 0, cuffFinish: 0, collarFelt: 0, shoulder: 0, canvasType: 0, liningCoverage: 0,

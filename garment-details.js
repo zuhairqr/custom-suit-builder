@@ -6,17 +6,17 @@
 
 const lapels = [
   // 0: Classic Notch Lapel (standard width, moderate point)
-  'M420 380 Q402 425 370 462 L346 490 L380 507 L350 516 Q414 631 512 720 Q469 535 420 380Z',
+  'M424 321 Q399 362 358 407 L337 439 L372 463 L341 470 Q394 597 512 720 Q457 534 424 321Z',
   // 1: Wide Notch Lapel
-  'M420 380 Q398 425 351 462 L320 490 L365 510 L321 523 Q402 638 512 720 Q469 535 420 380Z',
+  'M424 321 Q398 368 341 406 L311 446 L363 470 L314 482 Q385 613 512 720 Q457 534 424 321Z',
   // 2: Peak Lapel (sharp point, pronounced)
-  'M420 380 Q402 426 369 463 L385 503 L321 478 Q391 630 512 720 Q469 535 420 380Z',
+  'M424 321 Q394 372 344 419 L372 461 L302 442 Q370 602 512 720 Q460 534 424 321Z',
   // 3: Wide Peak Lapel
-  'M420 380 Q398 426 351 463 L376 509 L287 468 Q378 638 512 720 Q469 535 420 380Z',
+  'M424 321 Q390 372 332 420 L368 459 L264 426 Q355 612 512 720 Q460 534 424 321Z',
   // 4: Shawl Lapel (curved, rounded collar)
-  'M420 380 Q374 438 365 515 Q386 630 512 720 Q469 535 420 380Z',
+  'M424 321 Q363 378 363 457 Q367 588 512 720 Q461 537 424 321Z',
   // 5: Shawl Lapel (butterfly style)
-  'M420 380 C385 418 340 465 345 531 C363 617 422 671 512 720 Q469 535 420 380Z',
+  'M424 321 C374 351 319 395 333 468 C345 556 405 650 512 720 Q456 537 424 321Z',
   // 6: Narrow Notch (slim profile)
   'M424 321 L352 415 L380 450 L317 472 Q386 511 412 599 Q454 673 512 720 Q460 534 424 321Z',
   // 7: High-gorge Notch (tall gorge line)
@@ -145,9 +145,9 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   const shape = new Path2D(path);
   const clothPhoto = !finish && photoCloth(fabric);
   ctx.save();
-  ctx.shadowColor = '#090d1548';
-  ctx.shadowBlur = 3;
-  ctx.shadowOffsetY = 1.5;
+  ctx.shadowColor = clothPhoto ? '#090d1578' : '#090d15a6';
+  ctx.shadowBlur = clothPhoto ? 4 : 6;
+  ctx.shadowOffsetY = clothPhoto ? 2 : 3;
   if (bounds.matchBody) {
     // Pocket cut from matching cloth. Let the jacket's existing grid run
     // through the pocket and show the cut with the edge and its shadow.
@@ -155,7 +155,7 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   } else if (finish) {
     ctx.fillStyle = finish;
   } else {
-    const tile = garmentCloth(fabric).tile;
+    const tile = clothTile(fabric).tile;
     const pattern = ctx.createPattern(tile, 'repeat');
     const aspectRatio = w / Math.max(1, h);
     const scaleAdjustment = weaveHasLines(fabric) ? 1 / .82 : aspectRatio < 0.6 ? 1.2 : 1.46;
@@ -166,28 +166,13 @@ function fabricSurface(ctx, path, fabric, bounds, finish) {
   ctx.restore();
 
   const sheen = ctx.createLinearGradient(x, y, x + w, y + h * 0.33);
-  const photographedLight = ctx.clothLighting && !finish;
-  sheen.addColorStop(0, photographedLight ? '#03070c18' : clothPhoto ? '#03070c35' : '#03070c60');
-  sheen.addColorStop(0.34, finish ? '#ffffff40' : photographedLight ? '#ffffff08' : '#ffffff17');
-  sheen.addColorStop(0.67, photographedLight ? '#ffffff03' : '#ffffff08');
-  sheen.addColorStop(1, photographedLight ? '#05090f28' : clothPhoto ? '#05090f54' : '#05090f85');
+  sheen.addColorStop(0, clothPhoto ? '#03070c35' : '#03070c60');
+  sheen.addColorStop(0.34, finish ? '#ffffff40' : '#ffffff17');
+  sheen.addColorStop(0.67, '#ffffff08');
+  sheen.addColorStop(1, clothPhoto ? '#05090f54' : '#05090f85');
   ctx.fillStyle = sheen;
   ctx.fill(shape);
-  if (ctx.clothLighting) {
-    ctx.save();
-    ctx.clip(shape);
-    // Clip in garment coordinates, then sample lighting in image coordinates;
-    // mirrored lapels and rotated pockets inherit the folds underneath them.
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = .65;
-    ctx.drawImage(ctx.clothLighting.shadows, 0, 0);
-    ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 1;
-    ctx.drawImage(ctx.clothLighting.highlights, 0, 0);
-    ctx.restore();
-  }
-  ink(ctx, shape, '#0a0d123b', .9);
+  ink(ctx, shape, clothPhoto ? '#0a0d125b' : '#0a0d126e', 1.8);
 }
 
 function weaveHasLines(fabric) {
@@ -269,7 +254,7 @@ function paintAMF(ctx, path, stitching, x, y, span) {
   ctx.translate(x, y);
   ctx.scale(1 - 2 * inset / span, 1 - 2 * inset / span);
   ctx.translate(-x, -y);
-  ink(ctx, path, stitching === 2 ? '#f6e7c6bb' : stitching === 0 ? '#f4ede32b' : '#f4ede35b', stitching === 2 ? 2 : 1.2, [3, 4]);
+  ink(ctx, path, stitching === 2 ? '#f6e7c6bb' : '#f4ede375', 2, [3, 4]);
   ctx.restore();
 }
 
@@ -380,25 +365,6 @@ function paintFrontDetails(ctx, design, split, open = false) {
     ctx.fillStyle = lapelDepth;
     ctx.fill(new Path2D(lapelPath));
 
-    if (lapel <= 3) {
-      // The upper collar is a turned-over piece, joined to the lapel at the
-      // gorge. Give it a roll and seam instead of one uninterrupted flat strip.
-      ctx.save();
-      ctx.clip(new Path2D(lapelPath));
-      const collarRoll = ctx.createLinearGradient(365, 428, 462, 487);
-      collarRoll.addColorStop(0, '#171f2a32');
-      collarRoll.addColorStop(.48, '#ffffff15');
-      collarRoll.addColorStop(1, '#0a152933');
-      ctx.fillStyle = collarRoll;
-      ctx.fill(new Path2D('M420 380Q399 428 360 470L384 512L462 527Q442 445 420 380Z'));
-      const gorge = ['M380 507Q414 514 456 518', 'M365 510Q408 517 456 518',
-        'M385 503Q420 513 456 518', 'M376 509Q416 517 456 518'][lapel];
-      ink(ctx, gorge, '#12223855', 1.7);
-      ctx.translate(0, 2);
-      ink(ctx, gorge, '#ffffff20', 1);
-      ctx.restore();
-    }
-
     const edge = {
       5: ['#e3d3ae', 5, []],
       6: ['#e1d9caab', 2.2, [6, 3]],
@@ -505,19 +471,6 @@ function optionIcon(key, index) {
   const jacket = '<path d="M15 10 24 6h16l9 4 7 30-8 2-5-20 1 23H20l1-23-5 20-8-2z"/>';
   let body;
   switch (key) {
-    case 'shirtColor':
-      body = `<path d="M18 10 26 6h12l8 4 10 17-9 5-5-9v22H22V23l-5 9-9-5z" fill="${['#f2f4f8', '#aecde5', '#f4e8d3', '#e9cacc', '#354660'][index]}"/><path d="m26 6 6 11 6-11M32 17v28"/>`;
-      break;
-    case 'shirtCollar':
-      body = index === 2 ? '<path d="M15 17q17 13 34 0v13q-17 13-34 0z"/>'
-        : `<path d="m12 16 13-7 7 10 7-10 13 7-${index ? 13 : 6} 20-13-12-${index ? 13 : 20} 12z"/>`;
-      break;
-    case 'shirtCuff':
-      body = `<path d="M20 6h24l-2 29H22z"/><path d="M22 35h20v${index ? 3 : 9}H22z" fill="#cbd8e5"/>`;
-      break;
-    case 'shirtTie':
-      body = '<path d="m25 8 7 5 7-5-3 12h-8zM28 20h8l6 21-10 6-10-6z"/>' + (index === 2 ? '<path d="m13 9 38 34" stroke="#b44c50" stroke-width="3"/>' : '');
-      break;
     case 'lapel': {
       let lapelPath = lapels[index];
       let leftPath, rightPath;

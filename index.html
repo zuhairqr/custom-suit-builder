@@ -6,42 +6,43 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="form-action 'none'; base-uri 'none'">
   <title>Form Atelier | Suit Studio</title>
-  <link rel="stylesheet" href="studio.css?v=photographic-cloth">
-  <link rel="stylesheet" href="atelier.css?v=design-workspace">
-  <script src="neckline-catalog.js" defer></script>
-  <script src="catalog.js?v=photographic-cloth" defer></script>
-  <script src="fit-icons.js" defer></script>
-  <script src="mannequin-front.js" defer></script>
-  <script src="mannequin-inside.js" defer></script>
-  <script src="mannequin-back.js" defer></script>
-  <script src="mannequin-trousers.js" defer></script>
-  <script src="mannequin-trousers-back.js" defer></script>
-  <script src="mannequin-waistcoat.js" defer></script>
-  <script src="mannequin-waistcoat-back.js" defer></script>
-  <script src="garment-details.js?v=folded-front-collar" defer></script>
-  <script src="suit-pieces.js?v=basic-fit" defer></script>
-  <script src="construction-details.js?v=shirt-styling" defer></script>
-  <script src="cloth-samples.js" defer></script>
-  <script src="fabric-scans.js" defer></script>
-  <script src="fabric-renderer.js?v=photographic-cloth" defer></script>
-  <script src="face-camera.js" defer></script>
-  <script src="full-suit.js?v=cloth-studio" defer></script>
-  <script src="size-passport.js?v=shirt-styling" defer></script>
-  <script src="body-pose.js?v=front-pose" defer></script>
-  <script src="body-capture.js?v=consistent-frames" defer></script>
-  <script src="body-try-on.js?v=folded-front-collar" defer></script>
-  <script src="studio-model-image.js" defer></script>
-  <script src="studio-face-sheet.js" defer></script>
-  <script src="studio-rear-images.js" defer></script>
-  <script src="studio-faces.js?v=studio-angles" defer></script>
-  <script src="studio-shirt.js?v=blended-collar-folds" defer></script>
-  <script src="studio-model.js?v=folded-front-collar" defer></script>
-  <script src="studio-render.js?v=instant-fit-export" defer></script>
-  <!-- 3D rendering disabled -->
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script> -->
-  <!-- <script src="three-suit-renderer.js?v=real-3d" defer></script> -->
-  <script src="studio.js?v=design-workspace" defer></script>
-  <script src="studio-workspace.js?v=design-workspace" defer></script>
+  <link rel="stylesheet" href="studio.css?v=release-20261118-3d">
+  <script src="neckline-catalog.js?v=release-20261118-3d" defer></script>
+  <script src="catalog.js?v=release-20261118-3d" defer></script>
+  <script src="fit-icons.js?v=release-20261118-3d" defer></script>
+  <!-- Full-body Hockerty-style renderer -->
+  <script src="fullbody-mannequin.js?v=release-20261118-3d" defer></script>
+  <script src="fullbody-suit.js?v=release-20261118-3d" defer></script>
+  <script src="fullbody-renderer.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-front.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-inside.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-back.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-trousers.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-trousers-back.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-waistcoat.js?v=release-20261118-3d" defer></script>
+  <script src="mannequin-waistcoat-back.js?v=release-20261118-3d" defer></script>
+  <script src="garment-details.js?v=release-20261118-3d" defer></script>
+  <script src="suit-pieces.js?v=release-20261118-3d" defer></script>
+  <script src="construction-details.js?v=release-20261118-3d" defer></script>
+  <script src="cloth-samples.js?v=release-20261118-3d" defer></script>
+  <script src="fabric-scans.js?v=release-20261118-3d" defer></script>
+  <script src="fabric-renderer.js?v=release-20261118-3d" defer></script>
+  <script src="face-camera.js?v=release-20261118-3d" defer></script>
+  <script src="full-suit.js?v=release-20261118-3d" defer></script>
+  <script src="size-passport.js?v=release-20261118-3d" defer></script>
+  <script src="body-pose.js?v=release-20261118-3d" defer></script>
+  <script src="body-capture.js?v=release-20261118-3d" defer></script>
+  <script src="body-try-on.js?v=release-20261118-3d" defer></script>
+  <script src="studio-model-image.js?v=release-20261118-3d" defer></script>
+  <script src="studio-face-sheet.js?v=release-20261118-3d" defer></script>
+  <script src="studio-rear-images.js?v=release-20261118-3d" defer></script>
+  <script src="studio-faces.js?v=release-20261118-3d" defer></script>
+  <script src="studio-model.js?v=release-20261118-3d" defer></script>
+  <script src="studio-render.js?v=release-20261118-3d" defer></script>
+  <!-- 3D rendering ENABLED for testing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+<script src="three-suit-renderer.js?v=release-20261118-3d" defer></script>
+  <script src="studio.js?v=release-20261118-3d" defer></script>
 </head>
 <body>
   <header class="top">
@@ -56,8 +57,10 @@
   <main>
     <section id="studio" class="page">
       <div class="intro">
-        <div><p class="eyebrow">THE PERSONAL TAILORING STUDIO <span> / </span> NO. 01</p><h1>Your suit, <em>your signature.</em></h1></div>
-        <div class="intro-note"><span class="studio-edition">FORM / YOUR INDIVIDUALITY</span><p>Considered cloth. A personal cut.<br>Every detail, entirely yours.</p></div>
+        <h1>Create Your <em>Suit</em></h1>
+        <p>Choose fabric, style and details to make the suit yours.</p>
+        <button id="apply-studio-look" class="secondary" type="button">Navy studio look</button>
+        <button id="save-design" class="secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z"/></svg>Save Design</button>
       </div>
       <div class="outfit-bar">
         <label for="outfit">Suit pieces</label>
@@ -66,27 +69,21 @@
           <button type="button" data-piece="jacket" aria-pressed="true">Jacket</button>
           <button type="button" data-piece="trousers" aria-pressed="false" hidden>Trousers</button>
           <button type="button" data-piece="waistcoat" aria-pressed="false" hidden>Waistcoat (inner)</button>
-          <button type="button" data-piece="shirt" aria-pressed="false">Shirt</button>
         </div>
-        <button id="open-studio-looks" class="lookbook-trigger" type="button" aria-haspopup="dialog">Curated looks <span aria-hidden="true">↗</span></button>
-      </div>
-      <div class="design-toolbar" aria-label="Design workspace">
-        <p><span class="workspace-dot" aria-hidden="true"></span> A considered design, one detail at a time.</p>
-        <div><button id="open-saved-looks" type="button" aria-haspopup="dialog">Save &amp; compare <span id="saved-look-count">0</span></button><button id="open-design-details" type="button" aria-haspopup="dialog">Design details <span aria-hidden="true">↗</span></button></div>
       </div>
       <div class="frame">
-        <div class="workbench" id="workbench" data-mobile-panel="cloth">
+        <div class="workbench">
+          <nav class="studio-rail" aria-label="Customize your suit">
+            <button type="button" data-studio-panel="fabric" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 8 10-5 10 5-10 5zM2 12l10 5 10-5M2 16l10 5 10-5"/></svg>Fabric</button>
+            <button type="button" data-studio-panel="jacket" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-4 2-3 14 4 1 2-10v11h8V10l2 10 4-1-3-14-4-2zM9 3l3 10 3-10M12 13v8"/></svg>Jacket</button>
+            <button type="button" data-studio-panel="trousers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l2 18h-6l-2-11-2 11H4zM6 6h12"/></svg>Trousers</button>
+            <button type="button" data-studio-panel="details" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></svg>Details</button>
+            <button type="button" data-studio-panel="size" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 15 13-13 7 7L9 22zM6 11l3 3m0-6 2 2m1-5 3 3"/></svg>Size</button>
+          </nav>
           <aside class="glass cloth" aria-labelledby="cloth-title">
-            <p class="eyebrow">01 / MATERIAL</p>
             <div class="panel-title"><h2 id="cloth-title">Fabric</h2><span id="fabric-count" aria-live="polite"></span></div>
             <label class="sr-only" for="fabric-search">Search fabrics</label>
             <input id="fabric-search" type="search" placeholder="Color, weave, or code" autocomplete="off">
-            <div class="season-shortcuts" role="group" aria-label="Fabric season">
-              <button type="button" data-season="all" aria-pressed="true">All cloth</button>
-              <button type="button" data-season="all-season" aria-pressed="false">Year-round</button>
-              <button type="button" data-season="warm" aria-pressed="false">Summer</button>
-              <button type="button" data-season="cool" aria-pressed="false">Winter</button>
-            </div>
             <details class="fabric-filters">
               <summary>Filters <span id="fabric-filter-count"></span></summary>
               <div id="fabric-facets" class="fabric-facets">
@@ -132,7 +129,8 @@
             <div class="view-header">
               <span id="preview-mode"><i></i> PREVIEW</span>
               <div class="view-tools">
-                <button type="button" id="open-body" class="try-on-trigger" aria-haspopup="dialog">Full-body try-on</button>
+                <button id="toggle-3d" type="button" aria-pressed="false">3D Jacket</button>
+                <button type="button" id="open-body" class="try-on-trigger" aria-haspopup="dialog">Try on</button>
                 <button type="button" id="open-fit-export" aria-haspopup="dialog" hidden>Save Instant Fit</button>
                 <button type="button" id="open-studio-render" aria-haspopup="dialog" hidden>Studio render</button>
                 <button type="button" id="open-face" aria-haspopup="dialog">Add your face</button>
@@ -140,7 +138,20 @@
               </div>
             </div>
             <div class="model-stage">
-              <div id="model" class="model"><canvas id="fabric-model" role="img"></canvas></div>
+              <div id="model" class="model">
+                <canvas id="fabric-model" role="img"></canvas>
+                <div id="three-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;"></div>
+              </div>
+              <div class="angles" id="preview-angles" role="group" aria-label="Preview angle">
+                <button type="button" data-view="front" aria-pressed="true"><canvas width="80" height="88" data-angle-thumbnail="front" aria-hidden="true"></canvas>Front</button>
+                <button type="button" data-view="inside" aria-pressed="false"><canvas width="80" height="88" data-angle-thumbnail="inside" aria-hidden="true"></canvas>Inside</button>
+                <button type="button" data-view="back" aria-pressed="false"><canvas width="80" height="88" data-angle-thumbnail="back" aria-hidden="true"></canvas>Back</button>
+              </div>
+              <div id="preview-callouts" role="group" aria-label="Jacket close-ups" hidden>
+                <button type="button" data-view-detail="lapel"><canvas width="144" height="86" data-detail-thumbnail="lapel" aria-hidden="true"></canvas><span data-detail-label>Lapel</span></button>
+                <button type="button" data-view-detail="closure"><canvas width="144" height="86" data-detail-thumbnail="closure" aria-hidden="true"></canvas><span data-detail-label>Buttons</span></button>
+                <button type="button" data-view-detail="pocket"><canvas width="144" height="86" data-detail-thumbnail="pocket" aria-hidden="true"></canvas><span data-detail-label>Pockets</span></button>
+              </div>
               <figure id="look-detail" class="look-detail" hidden>
                 <div class="detail-top"><span id="look-detail-mode">Construction close-up</span><button id="close-look-detail" type="button">Full view</button></div>
                 <canvas id="look-detail-image" width="960" height="840" role="img" aria-labelledby="look-detail-label look-detail-choice"></canvas>
@@ -150,14 +161,8 @@
               <div id="studio-faces" class="studio-faces" role="group" aria-label="Choose a studio face" hidden></div>
             </div>
             <div class="visual-foot">
-              <div class="angles" id="preview-angles" aria-label="Preview angle">
-                <button type="button" data-view="front" aria-pressed="true">Front</button>
-                <button type="button" data-view="inside" aria-pressed="false">Inside</button>
-                <button type="button" data-view="back" aria-pressed="false">Back</button>
-              </div>
               <button id="toggle-jacket" type="button" hidden>Hide jacket</button>
               <button id="toggle-waistcoat" type="button" hidden>Hide waistcoat</button>
-              <button id="shirt-preview-toggle" type="button" aria-pressed="false" hidden>Show jacket</button>
               <label id="preview-model-control">Model<select id="preview-model">
                 <option value="studio">Studio model</option><option value="mannequin">Mannequin</option>
               </select></label>
@@ -168,24 +173,24 @@
               <button id="zoom" class="zoom" type="button" aria-label="Zoom preview" aria-pressed="false">+</button>
             </div>
           </section>
-          <div class="mobile-panel-tabs" id="mobile-panel-tabs" role="group" aria-label="Studio controls">
-            <button type="button" data-panel="cloth" aria-pressed="true"><span>01</span> Fabric</button>
-            <button type="button" data-panel="tailoring" aria-pressed="false"><span>02</span> Tailoring</button>
-          </div>
           <aside class="glass tailoring" aria-labelledby="tailoring-title">
-            <p class="eyebrow">02 / CONSTRUCTION</p>
-            <div class="panel-title"><h2 id="tailoring-title">Style</h2><button id="reset" type="button" class="quiet">Reset</button></div>
-            <label class="sr-only" for="style-jump">Jump to a detail</label>
-            <select id="style-jump"><option value="">Jump to a detail</option></select>
-            <button id="open-necklines" class="inspect" type="button" aria-haspopup="dialog">105 neckline styles <span aria-hidden="true">↗</span></button>
-            <div id="style-groups"></div>
+            <div class="panel-title"><h2 id="tailoring-title">Jacket Style</h2><button id="reset" type="button" class="quiet">Reset</button></div>
+            <div id="studio-quick-options"></div>
+            <details id="advanced-jacket-options">
+              <summary>More construction options</summary>
+              <label class="sr-only" for="style-jump">Jump to a detail</label>
+              <select id="style-jump"><option value="">Jump to a detail</option></select>
+              <button id="open-necklines" class="inspect" type="button" aria-haspopup="dialog">105 neckline styles <span aria-hidden="true">↗</span></button>
+              <div id="style-groups"></div>
+            </details>
           </aside>
         </div>
       </div>
       <div class="order-bar">
-        <div><span class="eyebrow">YOUR CONFIGURATION</span><strong id="design-summary"></strong></div>
+        <div class="studio-selection"><span class="eyebrow">Your selection</span><strong id="design-summary"></strong></div>
         <div class="order-actions"><span><small>CONFIGURATION TOTAL</small><strong id="price"></strong></span><button id="add" class="primary" type="button">Add to bag <span aria-hidden="true">↗</span></button></div>
       </div>
+      <p id="studio-action-message" role="status"></p>
     </section>
     <section id="cart" class="page follow-up" hidden>
       <p class="eyebrow">YOUR CONFIGURATION</p><h1>Your bag<span>.</span></h1>
@@ -224,7 +229,7 @@
             <label>Postal code<input required autocomplete="postal-code" name="postal"></label>
             <label>Country<input required autocomplete="country-name" name="country"></label>
           </div>
-          <p class="notice">Demo checkout. Your order summary stays in this browser session. No payment is collected.</p>
+          <p class="notice">Demo checkout. Your order and shipping details stay in this browser session and are included in the JSON download. No payment is collected.</p>
           <button class="primary" type="submit">Create demo order →</button>
         </form>
       </div>
@@ -343,25 +348,6 @@
     <h2 id="source-title">Collection looks</h2>
     <p class="collection-intro">Compare original references with editable Form Atelier looks. Applying a look replaces the current fabric and construction with a studio preset.</p>
     <div id="collection-looks" class="collection-looks"></div>
-  </dialog>
-  <dialog id="saved-looks-dialog" class="workspace-dialog" aria-labelledby="saved-looks-title">
-    <form method="dialog" class="dialog-close"><button class="quiet" aria-label="Close saved looks">✕</button></form>
-    <p class="eyebrow">YOUR DESIGN NOTEBOOK</p>
-    <h2 id="saved-looks-title">A few good options.</h2>
-    <p class="workspace-intro">Keep up to three looks and compare them with your current design. Saved on this browser; measurements stay with your bag items.</p>
-    <form id="save-look-form" class="save-look-form">
-      <label for="look-name">Name this look<input id="look-name" maxlength="40" required autocomplete="off" placeholder="e.g. The weekday navy"></label>
-      <button class="primary" type="submit">Save current look</button>
-    </form>
-    <p id="saved-look-status" class="workspace-status" role="status"></p>
-    <div id="saved-look-cards" class="saved-look-cards"></div>
-    <div id="look-comparison" class="look-comparison" tabindex="0" role="region" aria-label="Look comparison"></div>
-  </dialog>
-  <dialog id="design-details-dialog" class="workspace-dialog details-dialog" aria-labelledby="design-details-title">
-    <form method="dialog" class="dialog-close"><button class="quiet" aria-label="Close design details">✕</button></form>
-    <p class="eyebrow">THE DETAILS MAKE IT YOURS</p>
-    <h2 id="design-details-title">Your design, considered.</h2>
-    <div id="design-details-content"></div>
   </dialog>
   <div id="status" class="sr-only" role="status"></div>
 </body>

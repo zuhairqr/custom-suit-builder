@@ -24,9 +24,6 @@ const constructionDetails = {
 };
 
 const constructionGuides = {
-  shirtColor: 'Style the studio shirt, then select Jacket to see it with your suit. Shirt styling is a preview accessory and does not change the suit price.',
-  shirtCollar: 'Choose a pointed, wider spread, or clean band collar. A band collar is worn without a tie.',
-  shirtCuff: 'Choose how much shirt cuff is visible beneath the jacket sleeve.',
   ticket: 'A small pocket above the wearer’s right side pocket. Choose it independently of the side-pocket shape.',
   stitching: 'The AMF setting controls the stitch line’s distance from the edge of the lapel and pocket.',
   collarFelt: 'Choose self fabric or a tonal felt panel under the back collar.',

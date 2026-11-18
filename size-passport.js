@@ -109,19 +109,6 @@ function storePassportInput(items, input, unit) {
   else delete entry.measurements[key];
 }
 
-function syncPassportInputs(container, items, unit) {
-  // Autofill need not emit input. Keep canonical centimetres when the displayed
-  // rounded value has not changed, so toggling units never rounds the source.
-  for (const input of container.querySelectorAll('[data-measurement], [data-size-label]')) {
-    const {passportItem, passportPiece} = input.closest('[data-passport-piece]').dataset;
-    const entry = items[Number(passportItem)].passport[passportPiece];
-    const key = input.dataset.measurement;
-    if (!key || input.valueAsNumber !== measurementInUnit(entry.measurements[key], unit)) {
-      storePassportInput(items, input, unit);
-    }
-  }
-}
-
 function orderFabric(index) {
   const {name, code, material} = fabrics[index];
   return {name, code, material};
@@ -163,9 +150,6 @@ function orderItem(item, unit) {
     fabricCode: fabric.code,
     fabricMaterial: fabric.material,
     price: configurationPrice(item),
-    shirtStyling: Object.fromEntries(Object.entries(styleGroups)
-      .filter(([key]) => stylePiece(key) === 'shirt')
-      .map(([key, [label, options]]) => [label, options[key === 'shirtTie' && item.shirtCollar === 2 ? 2 : item[key]]])),
     pieces: outfits[item.outfit].pieces.map((piece) => {
       const entry = item.passport[piece];
       return {
@@ -181,18 +165,22 @@ function orderItem(item, unit) {
   };
 }
 
+function orderShipping(form) {
+  const fields = ['first', 'last', 'email', 'address', 'address2', 'city', 'state', 'postal', 'country'];
+  return Object.fromEntries(fields.map((field) => [field, String(form.get(field) ?? '').trim()]));
+}
+
 function orderSpecification(items, total, bodyFit) {
   const rows = (entries) => `<dl class="spec-list">${entries.map(([label, value]) =>
     `<div><dt>${orderEscape(label)}</dt><dd>${orderEscape(value)}</dd></div>`).join('')}</dl>`;
   return items.map((item, index) => `
     <article class="order-item">
-      <div class="receipt-row"><h3>${items.length > 1 ? `Item ${index + 1} · ` : ''}${item.outfit}</h3><strong>${money(item.price)}</strong></div>
-      <div class="order-fabric"><span>Fabric</span><strong>${item.fabric}</strong><small>${item.fabricCode} · ${item.fabricMaterial}</small></div>
-      ${item.shirtStyling ? `<details class="order-piece"><summary><strong>Shirt styling</strong><span>Preview accessory</span></summary>${rows(Object.entries(item.shirtStyling))}</details>` : ''}
+      <div class="receipt-row"><h3>${items.length > 1 ? `Item ${index + 1} · ` : ''}${orderEscape(item.outfit)}</h3><strong>${money(item.price)}</strong></div>
+      <div class="order-fabric"><span>Fabric</span><strong>${orderEscape(item.fabric)}</strong><small>${orderEscape(item.fabricCode)} · ${orderEscape(item.fabricMaterial)}</small></div>
       ${item.pieces.map((piece) => `
         <details class="order-piece" open>
-          <summary><strong>${piece.garment}</strong><span>${orderEscape(piece.size || 'Made to measure')}</span></summary>
-          ${piece.fabric.code !== item.fabricCode ? `<p class="piece-fabric">Fabric · <strong>${piece.fabric.name}</strong> · ${piece.fabric.code} · ${piece.fabric.material}</p>` : ''}
+          <summary><strong>${orderEscape(piece.garment)}</strong><span>${orderEscape(piece.size || 'Made to measure')}</span></summary>
+          ${piece.fabric.code !== item.fabricCode ? `<p class="piece-fabric">Fabric · <strong>${orderEscape(piece.fabric.name)}</strong> · ${orderEscape(piece.fabric.code)} · ${orderEscape(piece.fabric.material)}</p>` : ''}
           <h4>Measurements</h4>
           ${rows(Object.entries(piece.measurements).map(([label, value]) => [label, `${value} ${piece.measurementUnit}`]))}
           <h4>Construction</h4>

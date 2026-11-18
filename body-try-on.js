@@ -208,20 +208,19 @@ function jacketPanelRows(rows, design, spread) {
   });
 }
 
-function putSleeve(ctx, jacket, display, side, elbow, wrist, span, armhole, sourceRows, studioFit, minimalCuff = false) {
+function putSleeve(ctx, jacket, display, side, elbow, wrist, span, armhole, sourceRows) {
   const left = side === 0;
   const original = garmentRows(sourceRows, left);
   const capCenter = pointBetween(...armhole, .5);
   const elbowY = Math.max(elbow[1], capCenter[1] + (wrist[1] - capCenter[1]) * .22);
   const drape = pointBetween(capCenter, wrist, clamp((elbowY - capCenter[1]) / Math.max(1, wrist[1] - capCenter[1]), 0, 1));
-  const sleeveElbow = [pointBetween(elbow, drape, studioFit ? .58 : .35)[0], elbowY];
+  const sleeveElbow = [pointBetween(elbow, drape, .35)[0], elbowY];
   const arm = [wrist[0] - capCenter[0], wrist[1] - capCenter[1]];
   const forearm = [wrist[0] - elbow[0], wrist[1] - elbow[1]];
   const fitted = [armhole,
-    fittedRow(display, sleeveElbow, arm, span * (studioFit ? .15 : .16), .95, studioFit ? 1.09 : 1.17),
-    fittedRow(display, pointBetween(sleeveElbow, wrist, .52), forearm, span * .135, .95, studioFit ? 1.14 : 1.24),
-    fittedRow(display, pointBetween(elbow, wrist, (studioFit ? .985 : .96) + (minimalCuff ? .055 : 0)), forearm,
-      span * (minimalCuff ? .117 : .109), .95, studioFit ? 1.13 : 1.28)];
+    fittedRow(display, sleeveElbow, arm, span * .16, .95, 1.17),
+    fittedRow(display, pointBetween(sleeveElbow, wrist, .52), forearm, span * .135, .95, 1.24),
+    fittedRow(display, pointBetween(elbow, wrist, .96), forearm, span * .109, .95, 1.28)];
   const inside = left ? 1 : 0;
   const inward = left ? 1 : -1;
   fitted[2][inside][0] += inward * span * .018;
@@ -256,35 +255,43 @@ function putTrousers(ctx, trousers, display, body, design) {
   }
 }
 
-function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread = design.outfit === 2, studioFit = false, studioView = '') {
-  const studioModel = Boolean(studioView);
+function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread = design.outfit === 2) {
   const {elbows, wrists, shoulderCenter, hipCenter, torsoLength, knees, span} = body;
   const profile = [1, 1.035, .955][design.silhouette];
-  // Studio jackets sample the unscaled photograph. Apply the cut to the
-  // fitted rows so it changes the silhouette without moving the source seams.
-  const sourceDesign = studioFit ? {silhouette: 0, shoulder: 0} : design;
-  const shoulderWidth = (width, y) => span * width * (studioFit
-    ? 1 + jacketSilhouetteStretch(y / 1536, 0, design.shoulder)
-    : 1);
   const torso = [hipCenter[0] - shoulderCenter[0], hipCenter[1] - shoulderCenter[1]];
+  if (vestOnly) {
+    // Waistcoat artwork ends at y=1315. Jacket rows extend to y=1500 and
+    // include sleeve caps, which shorten the vest and stretch its armholes.
+    // Map the vest as one continuous torso using its own source landmarks.
+    const source = [[325, 130], [390, 180], [432, 280], [450, 280], [600, 260],
+      [730, 245], [850, 220], [1050, 270], [1199, 280], [1315, 280]]
+      .map(([y, half]) => centeredRow([512, y], half));
+    const neck = [shoulderCenter[0], Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * .12)];
+    const fitted = [
+      centeredRow(neck, span * .18),
+      centeredRow(pointBetween(neck, shoulderCenter, .40), span * .28),
+      centeredRow(pointBetween(neck, shoulderCenter, .78), span * .47),
+      centeredRow(pointBetween(neck, shoulderCenter, .88), span * .48),
+      centeredRow(pointBetween(shoulderCenter, hipCenter, .18), span * .47),
+      centeredRow(pointBetween(shoulderCenter, hipCenter, .32), span * .44 * profile),
+      fittedRow(display, pointBetween(shoulderCenter, hipCenter, .48), torso, span * .44 * profile, .92, 1.13),
+      fittedRow(display, pointBetween(shoulderCenter, hipCenter, .72), torso, span * .43 * profile, .91, 1.15),
+      centeredRow(pointBetween(shoulderCenter, hipCenter, .91), span * .43 * profile),
+      centeredRow(pointBetween(shoulderCenter, hipCenter, 1.08), span * .43 * profile),
+    ];
+    warpPanels(ctx, jacket, source, fitted);
+    return;
+  }
   const armhole = pointBetween(shoulderCenter, hipCenter, .32);
-  // The fixed studio pose marks the hip joint, above the seat. A jacket must
-  // extend below it; fitting to the shirt outline alone makes outerwear small.
-  // The open-lining asset ends higher in its source frame than the closed coat.
-  const hemFraction = studioModel ? (studioView === 'inside' ? .52 : .39) : .23;
-  const hem = pointBetween(hipCenter, pointBetween(...knees, .5), hemFraction);
-  const studioFrontCollar = studioModel && studioView !== 'back' && !vestOnly;
-  // Keep a conventional turned-down neckline. Exposed shirt shoulders are
-  // masked separately; raising/spreading the whole coat makes a standing collar.
-  const neck = [shoulderCenter[0], Math.max(display.safeTop + 1,
-    shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
+  const hem = vestOnly ? pointBetween(shoulderCenter, hipCenter, 1.08)
+    : pointBetween(hipCenter, pointBetween(...knees, .5), .23);
+  const neck = [shoulderCenter[0], Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * .16)];
   // End the sleeve mesh in the source photo's air gap, so it cannot pull
   // a second strip of the jacket body down beside the cuff.
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],
-    [1070, 74, 231], [1324, 71, 204]], sourceDesign, spread);
+    [1070, 74, 231], [1324, 71, 204]], design, spread);
   const [joinY, outside, inside] = sleeveRows[0];
-  const ease = studioModel ? (vestOnly ? 1.10 : 1.035) : 1;
-  const widthAtArmhole = span * .72 * ease;
+  const widthAtArmhole = span * (vestOnly ? .59 : .72);
   const shoulderRow = centeredRow(armhole, widthAtArmhole);
   const torsoRow = centeredRow(armhole, widthAtArmhole * (512 - inside) / (512 - outside));
 
@@ -293,44 +300,36 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const upper = [[300, 123], [390, 190], [450, 328], [490, 352], [600, 380], [joinY, 512 - outside]]
     .map(([y, half]) => centeredRow([512, y], half));
   warpPanels(ctx, jacket, upper, [
-    centeredRow(neck, span * (studioFrontCollar ? .25 : .21)),
-    centeredRow(pointBetween(neck, shoulderCenter, .40), span * .34),
-    centeredRow(pointBetween(neck, shoulderCenter, .88), shoulderWidth(.565, 450) * ease),
-    centeredRow(pointBetween(shoulderCenter, armhole, .18), shoulderWidth(.635, 490) * ease),
-    centeredRow(pointBetween(shoulderCenter, armhole, .56), shoulderWidth(.68, 600) * ease),
+    centeredRow(neck, span * (vestOnly ? .18 : .21)),
+    centeredRow(pointBetween(neck, shoulderCenter, .40), span * (vestOnly ? .28 : .34)),
+    centeredRow(pointBetween(neck, shoulderCenter, .88), span * (vestOnly ? .45 : .565)),
+    centeredRow(pointBetween(shoulderCenter, armhole, .18), span * (vestOnly ? .51 : .635)),
+    centeredRow(pointBetween(shoulderCenter, armhole, .56), span * (vestOnly ? .56 : .68)),
     shoulderRow,
   ]);
   if (!vestOnly) {
-    putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows, studioFit, studioModel && design.shirtCuff === 1);
-    putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows, studioFit, studioModel && design.shirtCuff === 1);
+    putSleeve(ctx, jacket, display, 0, elbows[0], wrists[0], span, [shoulderRow[0], torsoRow[0]], sleeveRows);
+    putSleeve(ctx, jacket, display, 1, elbows[1], wrists[1], span, [torsoRow[1], shoulderRow[1]], sleeveRows);
   }
 
-  const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], sourceDesign, spread)]
+  const original = [[joinY, inside], ...jacketPanelRows([[850, 267], [1050, 248], [1458, 196], [1500, 192]], design, spread)]
     .map(([y, left]) => [[left, y], [1024 - left, y]]);
   const waist = pointBetween(shoulderCenter, hipCenter, .72);
-  const chest = pointBetween(shoulderCenter, hipCenter, .48);
-  const fitRow = (center, half, low, high) => {
-    // The studio pose is fixed. Contrast edges inside the photographed shirt
-    // are folds, not waist measurements; fitting to them creates a pinched coat.
-    if (studioModel) return centeredRow(center, span * half * profile * ease);
-    const row = fittedRow(display, center, torso, span * half * (studioFit ? 1 : profile), low, high);
-    return row.map((point) => pointBetween(center, point, (studioFit ? profile : 1) * ease));
-  };
   const fitted = [
     torsoRow,
-    fitRow(chest, studioModel ? (vestOnly ? .43 : .47) : .44, .92, 1.13),
-    fitRow(waist, studioModel ? (vestOnly ? .41 : .445) : .43, .91, 1.15),
-    centeredRow(hem, span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
-    centeredRow([hem[0], hem[1] + torsoLength * .04], span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
+    fittedRow(display, pointBetween(shoulderCenter, hipCenter, .48), torso, span * .44 * profile, .92, 1.13),
+    fittedRow(display, waist, torso, span * .43 * profile, .91, 1.15),
+    centeredRow(hem, span * .51 * profile),
+    centeredRow([hem[0], hem[1] + torsoLength * .04], span * .51 * profile),
   ];
   warpPanels(ctx, jacket, original, fitted);
 }
 
 const studioVestOpening = 'M427 389 C422 530 421 598 399 701 Q375 854 361 1024 L337 1485 H687 L663 1024 Q649 854 625 701 C603 598 602 530 597 389 Q512 465 427 389Z';
 
-function composeTryOnJacket(design, withWaistcoat, spread = false, shapeJacket = true) {
+function composeTryOnJacket(design, withWaistcoat, spread = false) {
   const jacket = tryOnLayer('jacket');
-  if (!paintGarmentPhoto(jacket, design, 'front', false, {open: withWaistcoat, garmentOnly: true, shapeJacket})) return null;
+  if (!paintGarmentPhoto(jacket, design, 'front', false, {open: withWaistcoat, garmentOnly: true})) return null;
   if (!withWaistcoat) return jacket;
   const vest = tryOnLayer('vest');
   if (!paintGarmentPhoto(vest, design, 'waistcoat', false, {garmentOnly: true})) return null;

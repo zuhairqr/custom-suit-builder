@@ -91,7 +91,9 @@ function paintStudioModelTrousers(output, display, design, capture) {
   if (state.fitKey !== key) {
     const ctx = trouserOnly.getContext('2d');
     const frame = ctx.createImageData(cloth.width, cloth.height);
-    const {pixels} = garmentCloth(design.fabric);
+    const {pixels, average} = clothTile(design.fabric);
+    const patterned = /window|plaid|check|prince|gunclub|stripe|houndstooth/.test(fabrics[design.fabric].weave);
+    const texture = patterned ? .88 : .72;
     for (let i = 0; i < cloth.data.length; i += 4) {
       const alpha = cloth.data[i + 3];
       if (!alpha) continue;
@@ -101,7 +103,7 @@ function paintStudioModelTrousers(output, display, design, capture) {
       const sample = ((y % tileSize) * tileSize + x % tileSize) * 4;
       const light = clamp(Math.pow((cloth.data[i] + 2 * cloth.data[i + 1] + cloth.data[i + 2]) / 161, .68), .37, 1.33);
       for (let c = 0; c < 3; c++) {
-        frame.data[i + c] = exposeCloth(pixels[sample + c], light);
+        frame.data[i + c] = (average[c] + (pixels[sample + c] - average[c]) * texture) * light;
       }
       frame.data[i + 3] = alpha;
     }
@@ -120,17 +122,8 @@ function paintStudioModelTrousers(output, display, design, capture) {
     state.fitKey = key;
   }
   output.drawImage(base, 0, 0);
-  drawStudioTrouserFit(output, trouserOnly, display, design);
+  drawTrouserFit(output, trouserOnly, design.trouserFit);
   return trouserOnly;
-}
-
-function drawStudioTrouserFit(output, trousers, display, design) {
-  if (design.outfit !== 1) {
-    drawTrouserFit(output, trousers, design.trouserFit);
-    return;
-  }
-  const ankleCenters = bodyPoints.ankles.map((index) => display.point(index)[0]);
-  drawTrouserFit(output, trousers, design.trouserFit, .65, ankleCenters);
 }
 
 function shapeClosedStudioJacket(jacket, closure) {
@@ -159,76 +152,15 @@ function studioGarmentAssets(angle, garmentView, outfit) {
   return angle !== 'back' && outfit === 2 ? [angle, vest] : [angle];
 }
 
-function closedStudioJacket(design) {
-  const jacket = tryOnLayer('studio-jacket-source');
-  if (!paintGarmentPhoto(jacket, design, 'front', false, {garmentOnly: true, shapeJacket: false})) return null;
-  const closed = shapeClosedStudioJacket(jacket, design.closure);
-  if (design.outfit !== 2) return closed;
-  const vest = tryOnLayer('studio-vest-source');
-  if (!paintGarmentPhoto(vest, design, 'waistcoat', false, {garmentOnly: true})) return null;
-  const complete = tryOnLayer('studio-closed-three-piece');
-  complete.width = closed.width;
-  complete.height = closed.height;
-  const output = complete.getContext('2d');
-  output.save();
-  output.scale(complete.width / 1024, complete.height / 1536);
-  // A waistcoat sits behind the jacket, visible only in the lapel opening.
-  // Cutting the whole front open mixes both garments' button rows and hems.
-  output.beginPath(); output.rect(380, 320, 264, 505); output.clip();
-  output.drawImage(vest, 0, 0, 1024, 1536);
-  output.restore();
-  output.drawImage(closed, 0, 0);
-  return complete;
-}
-
-function maskStudioShirtShoulders(output, display, capture) {
-  if (capture.rear) return;
-  if (!capture.neckShirtMask) {
-    const {width, height, photoFrame} = display;
-    const source = photoFrame.getContext('2d').getImageData(0, 0, width, height).data;
-    const collar = makeCanvas(width, height), ctx = collar.getContext('2d');
-    ctx.scale(width / 887, height / 1774);
-    // Preserve the real shirt collar around the neck and knot. The original
-    // shirt's shoulder fabric outside it must not dictate the jacket neckline.
-    ctx.fill(new Path2D('M378 245Q443 294 508 245L514 282L491 346L443 312L395 346L372 282Z'));
-    const allowed = ctx.getImageData(0, 0, width, height).data;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    ctx.scale(width / 887, height / 1774);
-    ctx.fill(studioNeckSkin);
-    const skin = ctx.getImageData(0, 0, width, height).data;
-    const mask = new Uint8Array(width * height);
-    for (let y = Math.floor(height * 240 / 1774); y < height * 335 / 1774; y++) {
-      for (let x = Math.floor(width * 325 / 887); x < width * 560 / 887; x++) {
-        const sx = x * 887 / width;
-        // Never remove central neck/chin pixels, including neutral beard
-        // highlights that could otherwise be mistaken for white fabric.
-        if (sx >= 392 && sx <= 495) continue;
-        const px = y * width + x, i = px * 4;
-        // Remove the whole photographed shirt edge, including its grey
-        // antialiasing fringe, while protecting the anatomical neck silhouette.
-        const warmSkin = source[i] > source[i + 2] + 30 && source[i] > source[i + 1] + 10;
-        if (source[i + 3] && !warmSkin) mask[px] = (255 - allowed[i + 3]) * (1 - skin[i + 3] / 255);
-      }
-    }
-    capture.neckShirtMask = mask;
-  }
-  const frame = output.getImageData(0, 0, display.width, display.height);
-  const mask = capture.neckShirtMask;
-  for (let px = 0; px < mask.length; px++) {
-    if (mask[px]) frame.data[px * 4 + 3] *= 1 - mask[px] / 255;
-  }
-  output.putImageData(frame, 0, 0);
-}
-
-function paintStudioGarment(design, angle, garmentView, studioFit) {
+function paintStudioGarment(design, angle, garmentView) {
   const [primary, secondary] = studioGarmentAssets(angle, garmentView, design.outfit);
   if (!primary) return null;
   if (angle === 'front' && garmentView === 'jacket') {
-    return closedStudioJacket(design);
+    const garment = composeTryOnJacket(design, Boolean(secondary), Boolean(secondary));
+    return garment && !secondary ? shapeClosedStudioJacket(garment, design.closure) : garment;
   }
   const garment = tryOnLayer('studio-angle-garment');
-  if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true, shapeJacket: !studioFit})) return null;
+  if (!paintGarmentPhoto(garment, design, primary, false, {garmentOnly: true})) return null;
   if (!secondary) return garment;
 
   const vest = tryOnLayer('studio-inside-waistcoat');
@@ -253,10 +185,9 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   const portraits = capture?.rear ? studioRearPortraits : studioPortraits;
   if (!capture || (face?.crop && !portraits)) return false;
   const needsJacket = garmentView === 'jacket';
-  const studioFit = needsJacket;
   const key = JSON.stringify(['studio-model', design, clothAppearance(design), angle, garmentView, faceId]);
   if (renderedCanvases.get(canvas) === key) return true;
-  const garment = paintStudioGarment(design, angle, garmentView, studioFit);
+  const garment = paintStudioGarment(design, angle, garmentView);
   if (garmentView !== 'shirt' && !garment) return false;
   const display = prepareTryOnDisplay(capture);
   const {width, height} = display;
@@ -265,12 +196,6 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   canvas.height = height;
   const output = canvas.getContext('2d');
   const trousers = paintStudioModelTrousers(output, display, design, capture);
-  output.save();
-  // Recolor the photographed shirt without compositing its translucent edge
-  // a second time, which creates a pale fringe around the neck and sleeves.
-  output.globalCompositeOperation = 'source-atop';
-  output.drawImage(studioShirtOverlay(display, capture, design), 0, 0);
-  output.restore();
   if (face?.crop) paintStudioFace(output, width, height, face, capture.rear);
   if (needsJacket) {
     // Keep the real collar and tie in the opening. The jacket supplies the
@@ -284,22 +209,12 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     output.clip(sleeveMask, 'evenodd');
     output.clearRect(0, 268, 887, 641);
     output.restore();
-    maskStudioShirtShoulders(output, display, capture);
   }
-  if (needsJacket) {
-    // The front quarters and rear vents can also reveal the trousers. Clearing
-    // the shirt sleeves above removed this underlay, leaving transparent slits.
+  if (needsJacket && angle === 'inside' && trousers) {
+    // The open lining reveals the trousers below the waistcoat.
     output.save();
     output.globalCompositeOperation = 'destination-over';
-    if (trousers) drawStudioTrouserFit(output, trousers, display, design);
-    else {
-      // Jacket-only looks keep the photographed trousers below the hip, without
-      // restoring the shirt sleeves that the outerwear replaces.
-      output.beginPath();
-      output.rect(body.hipCenter[0] - body.span * .48, body.hipCenter[1], body.span * .96, height - body.hipCenter[1]);
-      output.clip();
-      output.drawImage(display.photoFrame, 0, 0);
-    }
+    drawTrouserFit(output, trousers, design.trouserFit);
     output.restore();
   }
   if (garment) {
@@ -307,7 +222,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket, false, studioFit, angle);
+    putJacket(ctx, garment, display, body, design, !needsJacket, angle === 'front' && design.outfit === 2);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }

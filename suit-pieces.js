@@ -90,33 +90,24 @@ function paintTrousers(ctx, design, rear = false) {
   ctx.restore();
 }
 
-function drawTrouserFit(ctx, source, fit, taperStart = .25, ankleCenters) {
+function drawTrouserFit(ctx, source, fit) {
   if (fit === 0) {
     ctx.drawImage(source, 0, 0);
     return;
   }
   const {width, height} = source;
   const change = [0, -.31, .34, -.16][fit];
-  const half = Math.floor(width / 2);
-  const [leftCenter, rightCenter] = ankleCenters ?? [width / 3, width * 2 / 3];
+  const half = width / 2;
+  const legCenter = width / 3;
   for (let y = 0; y < height; y += 2) {
     const row = Math.min(2, height - y);
     const position = y / height;
-    if (position <= taperStart) {
-      ctx.drawImage(source, 0, y, width, row, 0, y, width, row);
-      continue;
-    }
-    const progress = (position - taperStart) / (.88 - taperStart);
-    // The studio layer contains trousers only. Maintain the cut through the
-    // hem and scale each leg around its own ankle, while the shoes stay fixed.
-    const taper = Math.max(0, Math.min(1, progress, ankleCenters ? 1 : (.92 - position) / .025));
+    const taper = Math.max(0, Math.min(1, (position - .25) / .63, (.92 - position) / .025));
     const stretch = change * taper;
     const destWidth = half * (1 + stretch);
-    const offset = -leftCenter * stretch;
+    const offset = -legCenter * stretch;
     ctx.drawImage(source, 0, y, half, row, offset, y, destWidth, row);
-    const rightHalf = width - half;
-    const rightWidth = rightHalf * (1 + stretch);
-    ctx.drawImage(source, half, y, rightHalf, row, half - (rightCenter - half) * stretch, y, rightWidth, row);
+    ctx.drawImage(source, half, y, half, row, width - offset - destWidth, y, destWidth, row);
   }
 }
 
