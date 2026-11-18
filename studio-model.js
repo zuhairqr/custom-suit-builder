@@ -260,6 +260,28 @@ function paintStudioGarment(design, angle, garmentView) {
   return layered;
 }
 
+function paintStudioHands(output, display, capture) {
+  if (!capture.hands) {
+    const {width, height} = display;
+    const source = display.photoFrame.getContext('2d').getImageData(0, 0, width, height);
+    const hands = makeCanvas(width, height), ctx = hands.getContext('2d');
+    const pixels = ctx.createImageData(width, height);
+    const body = studioModelBody(display);
+    for (const wrist of body.wrists) {
+      for (let y = Math.max(0, Math.floor(wrist[1])); y < Math.min(height, wrist[1] + body.torsoLength * .48); y++) {
+        for (let x = Math.max(0, Math.floor(wrist[0] - body.span * .2)); x < Math.min(width, wrist[0] + body.span * .2); x++) {
+          const i = (y * width + x) * 4;
+          const r = source.data[i], g = source.data[i + 1], b = source.data[i + 2];
+          if (source.data[i + 3] && r > g + 5 && r > b + 12) pixels.data.set(source.data.subarray(i, i + 4), i);
+        }
+      }
+    }
+    ctx.putImageData(pixels, 0, 0);
+    capture.hands = hands;
+  }
+  output.drawImage(capture.hands, 0, 0);
+}
+
 function paintStudioModel(canvas, design, angle, garmentView, faceId) {
   const capture = studioModelCaptures.get(studioModelDirection(angle));
   const face = studioFaces.find(({id}) => id === faceId);
@@ -317,6 +339,7 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }
+  if (needsJacket) paintStudioHands(output, display, capture);
   const fabric = fabrics[design.fabric].name;
   const view = {jacket: outfits[design.outfit].name.toLowerCase(), waistcoat: 'waistcoat and trousers', shirt: 'shirt and trousers'}[garmentView];
   canvas.setAttribute('aria-label', `${fabric} ${view} on the studio model, ${angle} view${face?.crop ? `, ${face.name}` : ''}`);

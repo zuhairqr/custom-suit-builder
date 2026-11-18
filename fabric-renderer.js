@@ -413,6 +413,9 @@ function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, ope
   layer.setTransform(1, 0, 0, 1, 0, 0);
   layer.clearRect(0, 0, width, height);
   layer.drawImage(materialCanvas, 0, 0);
+  // Construction pieces cut from the same cloth inherit the photograph's
+  // lighting and texture in image coordinates, including on mirrored lapels.
+  layer.clothSurface = materialCanvas;
   if (fullBody && garment !== 'trousers') removePortraitTrousers(layer, photo, garment === 'waistcoat' ? 1228 : 1318);
   layer.scale(width / 1024, height / 1536);
   if (garment === 'jacket') {

@@ -342,9 +342,9 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   const fitted = [
     torsoRow,
     fitRow(chest, studioModel ? (vestOnly ? .43 : .47) : .44, .92, 1.13),
-    fitRow(waist, studioModel ? (vestOnly ? .41 : .445) : .43, .91, 1.15),
-    centeredRow(hem, span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
-    centeredRow([hem[0], hem[1] + torsoLength * .04], span * (studioModel ? (vestOnly ? .45 : .47) : .51) * profile * ease),
+    fitRow(waist, studioModel ? (vestOnly ? .41 : .475) : .43, .91, 1.15),
+    centeredRow(hem, span * (studioModel ? (vestOnly ? .45 : .53) : .51) * profile * ease),
+    centeredRow([hem[0], hem[1] + torsoLength * .04], span * (studioModel ? (vestOnly ? .45 : .53) : .51) * profile * ease),
   ];
   warpPanels(ctx, jacket, original, fitted);
 }

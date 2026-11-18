@@ -89,3 +89,22 @@ Designs, bag contents, measurements, units and preferences use browser local
 storage under `form-atelier-v1`. Clearing site data removes them. Demo shipping
 information exists only in the tab's session receipt/export. None of this is an
 account-synced production order database.
+
+## Recorded visual review
+
+Run `node tests/record-review.cjs` with Playwright and an installed Edge browser
+(or set `BROWSER_EXECUTABLE_PATH`). It records an actual 1440×1000 browser
+walkthrough of Blue Rough Linen, front/back/inside views and zoom, without
+capturing the desktop, microphone or webcam. External requests are blocked.
+Output defaults to the system temporary folder, `suitcraft-recorded-review/after`.
+Set `STUDIO_RECORD_MODE=before` and `STUDIO_REVIEW_BASE_REF=<commit>` to capture
+the same flow against the four rendering files from a historical commit.
+A manifest reports browser errors; inspect the video and native PNG as well.
+
+The November 18 join repair uses the photograph's own cloth lighting on lapels,
+widens the studio coat at the hips so trouser fabric cannot protrude beside the
+cuffs, and restores photographed hands in front of the coat. Regression checks
+cover hand pixels and lapel texture continuity. This remains a fixed-pose photo
+composite: the source V-neck limits collar realism, and it does not predict
+physical tailoring fit. AI currently detects body landmarks with MediaPipe;
+no generative image service is connected or invoked by these changes.

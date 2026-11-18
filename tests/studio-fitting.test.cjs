@@ -183,3 +183,41 @@ test('every two-piece and three-piece trouser cut stays centered over the photog
   });
   for(const result of shifts)assert.ok(result.shift<1.6,`Trouser hem must stay over its shoe: ${JSON.stringify(result)}`);
 });
+
+test('hands stay in front of the fitted coat without changing photographed skin', async t=>{
+  const page=await studio(t);await dressedView(page,1);
+  const hands=await page.evaluate(()=>{
+    const c=get('fabric-model'),data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    const display=prepareTryOnDisplay(studioModelCaptures.get('front')),source=display.photoFrame.getContext('2d').getImageData(0,0,c.width,c.height).data,body=studioModelBody(display);
+    let checked=0,maxDifference=0;
+    for(const wrist of body.wrists)for(let y=Math.ceil(wrist[1]+10);y<wrist[1]+body.torsoLength*.36;y++)for(let x=Math.ceil(wrist[0]-body.span*.16);x<wrist[0]+body.span*.16;x++){
+      const i=(y*c.width+x)*4,r=source[i],g=source[i+1],b=source[i+2];
+      if(source[i+3]===255&&r>g+12&&r>b+22){checked++;for(let channel=0;channel<3;channel++)maxDifference=Math.max(maxDifference,Math.abs(source[i+channel]-data[i+channel]));}
+    }
+    return {checked,maxDifference};
+  });
+  assert.ok(hands.checked>1000,'Inspect both hands, not a single lucky pixel');
+  assert.ok(hands.maxDifference<=2,`Coat must not paint over the hands (${hands.maxDifference})`);
+});
+
+test('self-cloth lapels preserve photographic grain and lighting instead of a flat triangle', async t=>{
+  const page=await studio(t);
+  await page.locator('#fabric-search').fill('Blue Rough Linen');await page.locator('[data-fabric]').first().click();
+  await page.waitForFunction(()=>photoCloth(design.fabric));
+  await page.evaluate(()=>{design.closure=1;design.lapel=2;design.lapelFinish=0;});await dressedView(page,1);
+  const continuity=await page.evaluate(()=>{
+    const c=tryOnLayer('studio-jacket-source'),output=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    const photo=studioPhotos.get('front'),source=photo.materialCanvas.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    const mask=makeCanvas(1,1).getContext('2d'),shape=new Path2D(lapels[2]),a=[],b=[];
+    for(let y=520;y<680;y+=3)for(let x=350;x<500;x+=3){
+      if(![[x-4,y],[x+4,y],[x,y-4],[x,y+4]].every(p=>mask.isPointInPath(shape,...p)))continue;
+      const i=(Math.round(y*c.height/1536)*c.width+Math.round(x*c.width/1024))*4;
+      a.push(source[i]*.2126+source[i+1]*.7152+source[i+2]*.0722);b.push(output[i]*.2126+output[i+1]*.7152+output[i+2]*.0722);
+    }
+    const avg=values=>values.reduce((sum,x)=>sum+x,0)/values.length,ma=avg(a),mb=avg(b);
+    let covariance=0,va=0,vb=0;for(let i=0;i<a.length;i++){covariance+=(a[i]-ma)*(b[i]-mb);va+=(a[i]-ma)**2;vb+=(b[i]-mb)**2;}
+    return {samples:a.length,correlation:covariance/Math.sqrt(va*vb)};
+  });
+  assert.ok(continuity.samples>200);
+  assert.ok(continuity.correlation>.75,`Photographic lighting must continue through the lapel (${continuity.correlation})`);
+});
