@@ -271,11 +271,42 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
     // Waistcoat artwork ends at y=1315. Jacket rows extend to y=1500 and
     // include sleeve caps, which shorten the vest and stretch its armholes.
     // Map the vest as one continuous torso using its own source landmarks.
-    const source = [[325, 130], [390, 180], [432, 280], [450, 280], [600, 260],
-      [730, 245], [850, 220], [1050, 270], [1199, 280], [1315, 280]]
+    const rearVest = studioModel && studioView === 'back';
+    // The rear photograph has a higher neckline and a straight hem ending at
+    // y=1250; using the pointed front's y=1315 shortens its body. At y=1050
+    // the photographed waist is x=275..743, not the jacket's wider hip row.
+    const source = [[rearVest ? 309 : 325, 130], [390, 180], [432, 280], [450, 280], [600, 260],
+      [730, 245], [850, 220], [1050, studioModel ? 245 : 270], [1199, studioModel ? 270 : 280], [rearVest ? 1252 : 1315, 280]]
       .map(([y, half]) => centeredRow([512, y], half));
     const neck = [shoulderCenter[0], Math.max(display.safeTop + 1, shoulderCenter[1] - torsoLength * .12)];
-    const fitted = [
+    // Fixed studio shoulders are anatomical landmarks. Their outer vest seam
+    // belongs inside the shirt shoulder and below its slope, not on the coat
+    // sleeve cap. Shirt folds must not be detected as waistcoat side edges.
+    const studioRow = (fraction, half) => centeredRow(pointBetween(shoulderCenter, hipCenter, fraction), span * half * profile);
+    // In the source vest, the inner strap begins at y=331 and the outer
+    // shoulder meets y=432. On the shirt photograph these meet the collar
+    // leaf at y=343 and the inset shoulder at y=373. One affine mapping keeps
+    // the strap slope intact; independently fitted rows raised its inner tip
+    // about 32 reference pixels above the collar.
+    const frontStrapRow = row => {
+      const y = row[0][1];
+      const referenceY = 343 + (y - 331) * (373 - 343) / (432 - 331);
+      const center = pointBetween(shoulderCenter, hipCenter, (referenceY - 364) / 468);
+      const half = (row[1][0] - row[0][0]) / 2;
+      return centeredRow(center, half * span * .435 / 280 * profile);
+    };
+    const fitted = studioModel ? [
+      rearVest ? centeredRow(neck, span * .18) : frontStrapRow(source[0]),
+      rearVest ? centeredRow(pointBetween(neck, shoulderCenter, .60), span * .28) : frontStrapRow(source[1]),
+      rearVest ? studioRow(.02, .435) : frontStrapRow(source[2]),
+      rearVest ? studioRow(.045, .44) : frontStrapRow(source[3]),
+      studioRow(.18, .45),
+      studioRow(.32, .45),
+      studioRow(.48, .44),
+      studioRow(.72, .425),
+      studioRow(rearVest ? .96 : .91, .44),
+      studioRow(rearVest ? 1.035 : 1.08, .44),
+    ] : [
       centeredRow(neck, span * .18),
       centeredRow(pointBetween(neck, shoulderCenter, .40), span * .28),
       centeredRow(pointBetween(neck, shoulderCenter, .78), span * .47),
@@ -300,7 +331,9 @@ function putJacket(ctx, jacket, display, body, design, vestOnly = false, spread 
   // Keep a conventional turned-down neckline. Exposed shirt shoulders are
   // masked separately; raising/spreading the whole coat makes a standing collar.
   const neck = [shoulderCenter[0], Math.max(display.safeTop + 1,
-    shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
+    studioModel && studioView === 'back' && Number.isFinite(display.studioCollarTop)
+      ? display.studioCollarTop
+      : shoulderCenter[1] - torsoLength * (studioModel ? .21 : .16))];
   // End the sleeve mesh in the source photo's air gap, so it cannot pull
   // a second strip of the jacket body down beside the cuff.
   const sleeveRows = jacketPanelRows([[730, 110, 261], [851, 94, 255],

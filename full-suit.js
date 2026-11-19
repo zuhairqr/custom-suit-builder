@@ -20,19 +20,31 @@ function fullLookLayer(key) {
   return fullLookLayers[key];
 }
 
-function drawLookOpening(ctx, angle) {
+function drawLookOpening(ctx, angle, jacket) {
   if (angle !== 'front') return;
+  // The opening's construction path reaches below the photographed coat hem.
+  // Draw its edge treatment separately and keep only pixels on the actual
+  // jacket, so the seam cannot hang down over the trousers.
+  const seams = fullLookLayer('opening-seams');
+  seams.width = jacket.width;
+  seams.height = jacket.height;
+  const edge = seams.getContext('2d');
+  edge.scale(seams.width / 1024, seams.height / 1536);
   for (const mirror of [false, true]) {
-    ctx.save();
+    edge.save();
     if (mirror) {
-      ctx.translate(1024, 0);
-      ctx.scale(-1, 1);
+      edge.translate(1024, 0);
+      edge.scale(-1, 1);
     }
-    ink(ctx, openJacketEdge, '#1117217a', 8);
-    ctx.translate(-3, 0);
-    ink(ctx, openJacketEdge, '#fbf8ed44', 1.7);
-    ctx.restore();
+    ink(edge, openJacketEdge, '#1117217a', 8);
+    edge.translate(-3, 0);
+    ink(edge, openJacketEdge, '#fbf8ed44', 1.7);
+    edge.restore();
   }
+  edge.setTransform(1, 0, 0, 1, 0, 0);
+  edge.globalCompositeOperation = 'destination-in';
+  edge.drawImage(jacket, 0, 0);
+  ctx.drawImage(seams, 0, 0, 1024, 1536);
 }
 
 function paintFullSuit(canvas, design, angle, {thumbnail = false, face = false, jacketHidden = false, skinTone = 0} = {}) {
@@ -78,13 +90,15 @@ function paintFullSuit(canvas, design, angle, {thumbnail = false, face = false, 
       fillShape(torso, opening, '#000');
       output.save();
       output.clip(new Path2D(opening));
-      paintWaistcoatShirt(output);
+      // The mannequin needs an opaque shirt underlay through the waistcoat
+      // opening, without a second angular collar drawn over its neckline.
+      paintWaistcoatShirt(output, false);
       output.clip(new Path2D(vestOutline));
       output.drawImage(waistcoat, 0, 0, 1024, 1536);
       output.restore();
     }
     output.drawImage(top, 0, 0, 1024, 1536);
-    if (withWaistcoat) drawLookOpening(output, angle);
+    if (withWaistcoat) drawLookOpening(output, angle, top);
   }
   if (version && faceState.image) paintPersonalFace(output);
   canvas.setAttribute('aria-label', `${fabrics[design.fabric].name} full-body ${outfits[design.outfit].name.toLowerCase()}, ${angle} view${jacketHidden ? ', jacket hidden' : ''}${version && faceState.image ? ', with your face' : ''}`);

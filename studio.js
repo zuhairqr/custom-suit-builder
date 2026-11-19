@@ -267,6 +267,7 @@ function syncPreviewAngles() {
 
 function paintPreviewThumbnails() {
   for (const canvas of document.querySelectorAll('[data-option-preview]')) {
+    if (get('studio-quick-options')?.hidden) break;
     const {style, choice} = canvas.parentElement.dataset;
     const optionDesign = {...design, [style]: Number(choice)};
     const configuration = JSON.stringify([optionDesign, clothAppearance(optionDesign)]);
@@ -368,7 +369,7 @@ function renderPreview() {
   const stage = model.closest('.model-stage');
   stage.setAttribute('data-preview-angle', angle);
   stage.setAttribute('data-preview-piece', piece);
-  get('model').classList.toggle('zoomed', garmentFocus ? !zoomed : zoomed);
+  get('model').classList.toggle('zoomed', zoomed);
   get('model').classList.toggle('garment-focus', garmentFocus);
   get('model').classList.toggle('full-look', full);
   get('model').classList.toggle('personal-look', personal);
@@ -412,7 +413,7 @@ function renderPreview() {
   get('compare').disabled = full || view !== 'front';
   get('compare').setAttribute('aria-pressed', !full && split && view === 'front');
   get('zoom').setAttribute('aria-pressed', zoomed);
-  const framing = garmentFocus ? (zoomed ? 'Jacket focus' : 'Full body') : (zoomed ? 'Reset preview zoom' : 'Zoom preview');
+  const framing = garmentFocus ? (zoomed ? 'Full body' : 'Jacket focus') : (zoomed ? 'Reset preview zoom' : 'Zoom preview');
   get('zoom').textContent = garmentFocus ? framing : zoomed ? '-' : '+';
   get('zoom').setAttribute('aria-label', framing);
   syncPreviewAngles();

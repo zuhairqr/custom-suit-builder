@@ -22,7 +22,7 @@ function loadStudioModel(direction, onLoad) {
   const image = new Image();
   image.onload = () => {
     const photo = makeCanvas(image.naturalWidth, image.naturalHeight);
-    const photoContext = photo.getContext('2d');
+    const photoContext = photo.getContext('2d', {willReadFrequently: true});
     photoContext.drawImage(image, 0, 0);
     // The supplied cutout contains near-transparent chroma spill around hands,
     // cuffs and hair, and alpha 252–254 across otherwise solid fabric. Repeated
@@ -60,12 +60,23 @@ function studioModelBody(display) {
   return body;
 }
 
+function studioModelJacketDisplay(display, body, rear) {
+  if (!rear) return display;
+  // On the rear photograph the shirt collar starts near y=245. Meet it at
+  // y=252, leaving a narrow shirt band instead of mapping the jacket down to
+  // the front neckline (y=266). Scale that landmark with the same fixed pose.
+  const shoulderY = (studioModelPose[11][1] + studioModelPose[12][1]) / 2;
+  const hipY = (studioModelPose[23][1] + studioModelPose[24][1]) / 2;
+  const collarTop = body.shoulderCenter[1] + (252 - shoulderY) * body.torsoLength / (hipY - shoulderY);
+  return {...display, studioCollarTop: Math.max(display.safeTop + 1, collarTop)};
+}
+
 function studioModelClothes(display, capture) {
   if (capture.clothes) return capture.clothes;
   const {width, height, photoFrame} = display;
   const base = makeCanvas(width, height);
   const trousers = makeCanvas(width, height);
-  const shirt = base.getContext('2d');
+  const shirt = base.getContext('2d', {willReadFrequently: true});
   const pants = trousers.getContext('2d');
   shirt.drawImage(photoFrame, 0, 0);
   const photo = shirt.getImageData(0, 0, width, height);
@@ -199,7 +210,7 @@ function maskStudioShirtShoulders(output, display, capture) {
   if (!capture.neckShirtMask) {
     const {width, height, photoFrame} = display;
     const source = photoFrame.getContext('2d').getImageData(0, 0, width, height).data;
-    const collar = makeCanvas(width, height), ctx = collar.getContext('2d');
+    const collar = makeCanvas(width, height), ctx = collar.getContext('2d', {willReadFrequently: true});
     ctx.scale(width / 887, height / 1774);
     // Preserve the real shirt collar around the neck and knot. The original
     // shirt's shoulder fabric outside it must not dictate the jacket neckline.
@@ -224,14 +235,51 @@ function maskStudioShirtShoulders(output, display, capture) {
         if (source[i + 3] && !warmSkin) mask[px] = (255 - allowed[i + 3]) * (1 - skin[i + 3] / 255);
       }
     }
-    capture.neckShirtMask = mask;
+    // Cache the alpha erase surface, rather than reading and writing the entire
+    // finished preview again whenever cloth or construction changes.
+    const erase = makeCanvas(width, height), eraseContext = erase.getContext('2d');
+    const pixels = eraseContext.createImageData(width, height);
+    for (let px = 0; px < mask.length; px++) pixels.data[px * 4 + 3] = mask[px];
+    eraseContext.putImageData(pixels, 0, 0);
+    capture.neckShirtMask = erase;
   }
-  const frame = output.getImageData(0, 0, display.width, display.height);
-  const mask = capture.neckShirtMask;
-  for (let px = 0; px < mask.length; px++) {
-    if (mask[px]) frame.data[px * 4 + 3] *= 1 - mask[px] / 255;
+  output.save();
+  output.globalCompositeOperation = 'destination-out';
+  output.drawImage(capture.neckShirtMask, 0, 0);
+  output.restore();
+}
+
+function studioShirtCollarPixel(red, green, blue) {
+  // The photographed white collar has neutral/cool folds. Warm neck pixels
+  // and the dark tie must never be pasted over the selected studio portrait.
+  return Math.min(red, green, blue) > 98 && blue >= red - 8 && green >= red - 10;
+}
+
+function paintStudioShirtCollar(output, display, capture) {
+  if (capture.rear) return;
+  if (!capture.collarForeground) {
+    const scaleX = display.width / 887, scaleY = display.height / 1774;
+    const left = Math.floor(370 * scaleX), top = Math.floor(245 * scaleY);
+    const width = Math.ceil(516 * scaleX) - left, height = Math.ceil(348 * scaleY) - top;
+    const collar = makeCanvas(width, height), ctx = collar.getContext('2d', {willReadFrequently: true});
+    ctx.drawImage(display.photoFrame, left, top, width, height, 0, 0, width, height);
+    ctx.save();
+    ctx.translate(-left, -top);
+    ctx.scale(scaleX, scaleY);
+    ctx.globalCompositeOperation = 'destination-in';
+    // These are the source shirt's collar leaves, not the surrounding shoulder
+    // or neck. The waistcoat straps belong underneath their photographed edges.
+    ctx.fill(new Path2D('M378 245L443 306L395 346L372 282Z M508 245L514 282L491 346L443 306Z'));
+    ctx.restore();
+    const pixels = ctx.getImageData(0, 0, width, height);
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      if (!studioShirtCollarPixel(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2])) pixels.data[i + 3] = 0;
+    }
+    ctx.putImageData(pixels, 0, 0);
+    capture.collarForeground = {canvas: collar, left, top};
   }
-  output.putImageData(frame, 0, 0);
+  const {canvas, left, top} = capture.collarForeground;
+  output.drawImage(canvas, left, top);
 }
 
 function paintStudioGarment(design, angle, garmentView) {
@@ -335,10 +383,12 @@ function paintStudioModel(canvas, design, angle, garmentView, faceId) {
     layer.width = width;
     layer.height = height;
     const ctx = layer.getContext('2d');
-    putJacket(ctx, garment, display, body, design, !needsJacket, false, needsJacket, angle);
+    const jacketDisplay = studioModelJacketDisplay(display, body, capture.rear);
+    putJacket(ctx, garment, jacketDisplay, body, design, !needsJacket, false, needsJacket, angle);
     ctx.clearRect(0, 0, width, display.safeTop);
     output.drawImage(layer, 0, 0);
   }
+  if (garmentView === 'waistcoat') paintStudioShirtCollar(output, display, capture);
   if (needsJacket) paintStudioHands(output, display, capture);
   const fabric = fabrics[design.fabric].name;
   const view = {jacket: outfits[design.outfit].name.toLowerCase(), waistcoat: 'waistcoat and trousers', shirt: 'shirt and trousers'}[garmentView];

@@ -392,22 +392,23 @@ dialog::backdrop { background: #000a; }
 .studio-rail button:hover { background: #fff2; }
 .studio-rail button { color: var(--studio-navy); }
 .studio-rail button[aria-pressed="true"] { color: white; background: var(--studio-navy); border-color: #fff4; }
-#studio .glass { padding: 10px; overflow: auto; scrollbar-width: thin; }
+#studio .glass { padding: 10px; overflow: auto; scrollbar-width: thin; color: var(--studio-navy); }
 #studio .panel-title { padding-bottom: 8px; border-bottom: 1px solid #fff5; }
 #studio .panel-title h2 { color: var(--studio-navy); font-size: clamp(15px, 1.45vw, 22px); }
 #studio .panel-title > span, #studio .glass .quiet { color: inherit; }
 #studio .fabric-filters, #studio .fabric-filters .quiet { color: #26333a; }
-#studio .fabric-pages, #studio .fabric-detail .eyebrow { color: #fff5e9; }
+#studio .fabric-pages, #studio .fabric-detail .eyebrow { color: #283e49; }
 #studio .fabric-pages button { color: #2b2520; }
 #studio .inspect { color: inherit; border-color: #fff6; background: #fff1; }
-#studio .swatches { grid-template-columns: 1fr; max-height: min(44svh, 415px); }
-#studio .swatch { border: 0; border-radius: 10px; background: #44444030; color: #fff; }
+#studio .swatches { grid-template-columns: 1fr; max-height: none; overflow: visible; }
+#studio .swatch { border: 1px solid #ffffff73; border-radius: 10px; background: #ffffff52; color: var(--studio-navy); }
 #studio .swatch canvas { height: clamp(46px, 7svh, 90px); border: 1px solid #fff8; border-radius: 10px; }
 #studio .swatch span { min-height: 0; padding: 6px 8px 2px; font-size: 12px; }
-#studio .swatch small { color: #fffddd; }
+#studio .swatch small { color: #354b55; }
 #studio .swatch[aria-pressed="true"] { outline: 2px solid var(--studio-amber); outline-offset: 1px; }
 #studio .fabric-detail { color: inherit; }
-#studio .fabric-detail small, #studio .style-group summary small { color: #fff5e9; }
+#studio .fabric-detail small, #studio .style-group summary small { color: #354b55; }
+#studio #style-groups { max-height: none; overflow: visible; }
 #studio .visual {
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: auto;
@@ -423,13 +424,11 @@ dialog::backdrop { background: #000a; }
 #studio .view-header button, #studio .visual-foot button { min-height: 33px; font-size: 12px; border-radius: 9px; }
 #studio #toggle-3d { background: var(--studio-navy); color: #fff; border-color: #fff8; }
 #studio .model-stage {
-  background:
-    radial-gradient(ellipse at 34% 13%, #fff9e3d9, transparent 55%),
-    linear-gradient(123deg, transparent 10%, #fff9e53d 12%, #fff9e53d 19%, transparent 21%, transparent 27%, #fff9e52b 29%, #fff9e52b 36%, transparent 38%),
-    linear-gradient(107deg, #aca18f, #d1c2ad 48%, #a3988c);
+  background: radial-gradient(ellipse at 50% 35%, #f2f0eb, #dbdedb 74%, #c8cfcd);
   border-radius: 13px;
   box-shadow: inset 0 0 60px #5b514417, inset 0 1px 0 #fffa;
 }
+#studio .model canvas { filter: none; }
 #studio .visual-foot button[aria-pressed="true"] { color: #fff; background: var(--studio-navy); }
 .studio-quick-group {
   margin-block: 0 8px;
@@ -521,7 +520,7 @@ dialog::backdrop { background: #000a; }
   transform: translateY(-50%);
 }
 #studio #preview-angles { left: 10px; width: clamp(43px, 4.4vw, 73px); }
-#studio #preview-callouts { right: 12px; width: clamp(95px, 11vw, 176px); }
+#studio #preview-callouts { right: 8px; width: auto; max-width: 104px; }
 #studio #preview-angles button, #studio #preview-callouts button {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -554,17 +553,8 @@ dialog::backdrop { background: #000a; }
 }
 #studio #preview-callouts span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #studio #preview-callouts button { position: relative; overflow: visible; box-shadow: 0 3px 9px #2c211d38; }
-@media (min-width: 1180px) {
-  #studio .model-stage[data-preview-angle="front"][data-preview-piece="jacket"]:has(.garment-focus.zoomed) #preview-callouts button:is([data-view-detail="lapel"], [data-view-detail="closure"], [data-view-detail="pocket"])::before {
-    position: absolute;
-    top: 50%;
-    right: 100%;
-    width: clamp(32px, 4vw, 72px);
-    border-top: 1px solid #fff;
-    content: "";
-    pointer-events: none;
-  }
-}
+#studio #preview-callouts button { min-height: 34px; padding: 7px 9px; color: var(--studio-navy); background: #f6f7f2e8; backdrop-filter: none; font-size: 11px; box-shadow: 0 2px 6px #23352f12; }
+#studio #preview-callouts canvas { display: none; }
 @media (min-width: 1021px) and (min-height: 680px) {
   #studio:not([hidden]) {
     display: grid;
@@ -617,6 +607,11 @@ dialog::backdrop { background: #000a; }
 #studio .visual-foot .studio-faces { position: static; transform: none; display: flex; gap: 5px; flex-shrink: 0; }
 #studio .visual-foot .studio-faces[hidden] { display: none; }
 #studio .visual-foot .studio-faces button { width: 28px; min-height: 0; padding: 1px; border-radius: 5px; }
+#studio .visual-foot .studio-faces button[aria-pressed="true"] { outline: 2px solid var(--studio-amber); outline-offset: 1px; }
+#studio .visual-foot { gap: 6px; padding-top: 7px; }
+#studio .view-header, #studio .visual-foot { color: var(--studio-navy); }
+#studio .view-header > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#studio :is(.piece-tabs button, .fabric-pages button, #skin-tone, #preview-model) { min-height: 32px; }
 @media (max-width: 520px) {
   /* Two narrow sidebars broke option names into individual letters. */
   #studio .workbench { grid-template-columns: minmax(0, 1fr); }

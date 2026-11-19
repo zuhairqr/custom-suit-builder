@@ -24,7 +24,7 @@ function requestClothSample(index) {
   const photo = new Image();
   photo.onload = () => {
     const tile = makeCanvas(tileSize, tileSize);
-    const ctx = tile.getContext('2d');
+    const ctx = tile.getContext('2d', {willReadFrequently: true});
     ctx.drawImage(photo, 0, 0, tileSize, tileSize);
     const pixels = ctx.getImageData(0, 0, tileSize, tileSize).data;
     clothSamples.set(index, {tile, pixels, average: clothAverage(pixels), image: photo});
@@ -374,15 +374,27 @@ function removePortraitTrousers(layer, photo, hem) {
   layer.restore();
 }
 
-function isolatePhotoCloth(ctx, photo) {
+function isolatedClothAlpha(base, offset, mask, porcelain = false) {
+  if (porcelain) {
+    const low = Math.min(base[offset], base[offset + 1], base[offset + 2]);
+    const high = Math.max(base[offset], base[offset + 1], base[offset + 2]);
+    // The fixed waistcoat source is navy cloth on a white porcelain body.
+    // Cool grey bevels around its armholes can satisfy the blue cloth test.
+    // Classify these from the ORIGINAL pixels, before applying any selected
+    // fabric, so pale blue/white customer fabrics are never removed by color.
+    if (low > 140 && high - low < 28) return 0;
+  }
+  return base[offset + 3] * clamp(Math.abs(mask) / 45, 0, 1);
+}
+
+function isolatePhotoCloth(ctx, photo, porcelain = false) {
   if (!photo.clothAlpha) {
     const alpha = makeCanvas(photo.width, photo.height);
     const target = alpha.getContext('2d');
     const frame = target.createImageData(photo.width, photo.height);
     for (let px = 0; px < photo.mask.length; px++) {
       const i = px * 4;
-      const fabric = Math.abs(photo.mask[px]);
-      frame.data[i + 3] = photo.base[i + 3] * clamp(fabric / 45, 0, 1);
+      frame.data[i + 3] = isolatedClothAlpha(photo.base, i, photo.mask[px], porcelain);
     }
     target.putImageData(frame, 0, 0);
     photo.clothAlpha = alpha;
@@ -431,7 +443,7 @@ function paintGarmentPhoto(canvas, design, angle, split, {thumbnail = false, ope
   } else {
     paintWaistcoat(layer, design, garmentOnly);
   }
-  if (garmentOnly) isolatePhotoCloth(layer, photo);
+  if (garmentOnly) isolatePhotoCloth(layer, photo, garment === 'waistcoat');
 
   canvas.width = thumbnail ? 144 : width;
   canvas.height = Math.round(canvas.width * height / width);

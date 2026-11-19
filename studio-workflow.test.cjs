@@ -145,7 +145,7 @@ test('quick construction choices and Save Design use the current configuration',
   assert.equal(studio.element('studio-action-message').textContent, 'Design saved on this device.');
 });
 
-test('a saved full-look mannequin opens in garment focus and can show the full body', () => {
+test('a saved full look opens uncropped and explicit jacket zoom preserves the configuration', () => {
   const localStorage = storage({'form-atelier-v1': JSON.stringify({
     design: {outfit: 2, fabric: 3}, modelPreference: 'mannequin',
   })});
@@ -157,12 +157,17 @@ test('a saved full-look mannequin opens in garment focus and can show the full b
 
   app.run('renderPreview()');
   assert.ok(modelClasses.has('garment-focus'));
-  assert.ok(modelClasses.has('zoomed'));
-  assert.equal(app.element('zoom').textContent, 'Full body');
+  assert.ok(!modelClasses.has('zoomed'));
+  assert.equal(app.element('zoom')['aria-pressed'], 'false');
+  assert.equal(app.element('zoom').textContent, 'Jacket focus');
 
   app.emit('zoom', 'click');
+  assert.ok(modelClasses.has('zoomed'));
+  assert.equal(app.element('zoom')['aria-pressed'], 'true');
+  assert.equal(app.element('zoom').textContent, 'Full body');
+  app.emit('zoom', 'click');
   assert.ok(!modelClasses.has('zoomed'));
-  assert.equal(app.element('zoom').textContent, 'Jacket focus');
+  assert.equal(app.element('zoom')['aria-pressed'], 'false');
   assert.equal(app.run('design.outfit'), 2);
   assert.equal(app.run('design.fabric'), 3);
   assert.equal(app.run('modelPreference'), 'mannequin');

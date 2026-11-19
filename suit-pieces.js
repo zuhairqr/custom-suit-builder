@@ -128,15 +128,17 @@ function waistcoatLining(design) {
   return activeLinings[design.vestLining - 1]?.[1] || liningColors[design.lining] || liningColors[0];
 }
 
-function paintWaistcoatShirt(ctx) {
+function paintWaistcoatShirt(ctx, collar = true) {
   const shirt = ctx.createLinearGradient(431, 435, 595, 835);
   shirt.addColorStop(0, '#f0f2f3');
   shirt.addColorStop(.55, '#faf9f5');
   shirt.addColorStop(1, '#c4c9cb');
   fillShape(ctx, 'M420 410 Q512 457 604 410 L642 937 H382Z', shirt);
   ink(ctx, 'M512 492V932', '#6c767c45', 3);
-  fillShape(ctx, 'M427 420 Q469 450 512 456 L477 509ZM597 420 Q555 450 512 456 L547 509Z', '#f9f9f6');
-  ink(ctx, 'M427 420L477 509L512 456L547 509L597 420', '#59646a66', 2);
+  if (collar) {
+    fillShape(ctx, 'M427 420 Q469 450 512 456 L477 509ZM597 420 Q555 450 512 456 L547 509Z', '#f9f9f6');
+    ink(ctx, 'M427 420L477 509L512 456L547 509L597 420', '#59646a66', 2);
+  }
 }
 
 function paintWaistcoat(ctx, design, garmentOnly) {
